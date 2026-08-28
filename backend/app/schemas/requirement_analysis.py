@@ -31,6 +31,8 @@ class ExtractedFeature(BaseModel):
 
 
 class RequirementAnalysisResult(BaseModel):
+    project_type: str
+    users: List[str]
     requirements: List[ExtractedRequirement]
     features: List[ExtractedFeature]
 
