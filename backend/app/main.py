@@ -1,3 +1,4 @@
+from app.api import tasks
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import projects
@@ -17,7 +18,7 @@ app.add_middleware(
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(analyze.router, prefix="/api/v1")
 app.include_router(questions.router, prefix="/api/v1")
-
+app.include_router(tasks.router, prefix="/api/v1")
 
 @app.get("/")
 def root():

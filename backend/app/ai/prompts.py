@@ -34,3 +34,32 @@ def build_user_prompt(description: str, budget: str = None, platform: str = None
     if platform:
         context += f"\nTarget platform: {platform}"
     return context
+
+TASK_GENERATION_SYSTEM_PROMPT = """You are a senior software engineer breaking a feature down into project-specific engineering tasks.
+
+You will be given a feature name, its description, and a list of baseline tasks that already exist for it.
+
+Rules:
+- Do NOT repeat any of the baseline tasks already listed.
+- Only suggest ADDITIONAL tasks that are specific to this project's context (not generic tasks already covered).
+- Suggest at most 3 additional tasks. If the baseline tasks are already sufficient, return an empty list.
+- Each task must have a "title", a "role" (one of: "Backend Developer", "Frontend Developer", "QA Engineer", "DevOps Engineer", "UI/UX Designer", "Project Manager"), and "base_hours" (a realistic integer estimate).
+
+Return ONLY valid JSON in this exact structure, nothing else:
+
+{
+  "additional_tasks": [
+    {"title": "...", "role": "Backend Developer", "base_hours": 5}
+  ]
+}
+"""
+
+
+def build_task_generation_prompt(feature_name: str, feature_description: str, baseline_tasks: list) -> str:
+    baseline_titles = ", ".join(t["title"] for t in baseline_tasks)
+    return (
+        f"Feature: {feature_name}\n"
+        f"Description: {feature_description}\n"
+        f"Baseline tasks already covered: {baseline_titles}\n\n"
+        f"Suggest any additional project-specific tasks, if genuinely needed."
+    )
