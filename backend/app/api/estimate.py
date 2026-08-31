@@ -19,6 +19,10 @@ def estimate_project(project_id: uuid.UUID, db: Session = Depends(get_db)):
         result["expected_hours"],
         result["max_hours"],
         result["complexity_score"],
+        result["min_cost"],
+        result["expected_cost"],
+        result["max_cost"],
+        result["timeline_weeks_expected"],
     )
 
     return {
@@ -26,5 +30,11 @@ def estimate_project(project_id: uuid.UUID, db: Session = Depends(get_db)):
         "expected_hours": saved.expected_hours,
         "max_hours": saved.max_hours,
         "complexity_score": saved.complexity_score,
+        "min_cost": saved.min_cost,
+        "expected_cost": saved.expected_cost,
+        "max_cost": saved.max_cost,
+        "timeline_weeks_min": result["timeline_weeks_min"],
+        "timeline_weeks_expected": saved.timeline_weeks,
+        "timeline_weeks_max": result["timeline_weeks_max"],
         "task_count": result["task_count"],
     }
