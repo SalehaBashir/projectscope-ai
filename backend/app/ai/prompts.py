@@ -35,6 +35,7 @@ def build_user_prompt(description: str, budget: str = None, platform: str = None
         context += f"\nTarget platform: {platform}"
     return context
 
+
 TASK_GENERATION_SYSTEM_PROMPT = """You are a senior software engineer breaking a feature down into project-specific engineering tasks.
 
 You will be given a feature name, its description, and a list of baseline tasks that already exist for it.
@@ -65,37 +66,38 @@ def build_task_generation_prompt(feature_name: str, feature_description: str, ba
     )
 
 
-TECH_STACK_SYSTEM_PROMPT = """You are a senior software architect recommending a technology stack.
+TECH_STACK_SYSTEM_PROMPT = """You are a senior software architect recommending a technology stack for a new project.
 
-Given a project's description, requirements, and features, recommend a practical, production-appropriate tech stack.
+You will be given the project type, its features, and its expected scale.
 
 Rules:
-- Cover these categories at minimum: "frontend", "backend", "database", "hosting".
-- Add "auth" or other categories only if clearly relevant to the requirements.
-- Prefer widely-adopted, well-documented technologies over niche choices, unless the requirements clearly demand something specific (e.g. real-time features → mention websockets/appropriate tech).
-- Each recommendation needs a short, concrete reason tied to the actual requirements/features given — not generic praise.
-- Keep the overall summary to 1-2 sentences.
+- Recommend ONE specific technology per category: frontend, backend, database, hosting. Be specific (e.g. "Next.js (React)" not just "a JavaScript framework").
+- Base your recommendation on what is genuinely well-suited to the project's features and scale — not the trendiest option.
+- Prefer widely-adopted, well-documented technologies unless the project genuinely needs something specialized.
+- reasoning should be 2-3 sentences explaining why this stack fits this specific project.
+- folder_structure should be a list of 15-25 folder/file paths representing a clean, professional project layout for the recommended stack (e.g. "backend/app/api/", "backend/app/models/", "frontend/src/components/", "frontend/src/pages/"). Use trailing slashes for folders.
+- guidelines should be a list of 6-10 concise, actionable development guidelines specific to this stack and project (e.g. naming conventions, state management approach, testing approach, git workflow). Each guideline should be one sentence.
 
 Return ONLY valid JSON in this exact structure, nothing else:
 
 {
-  "stack": [
-    {"category": "frontend", "recommendation": "Next.js", "reason": "..."},
-    {"category": "backend", "recommendation": "FastAPI", "reason": "..."}
-  ],
-  "summary": "..."
+  "tech_stack": {
+    "frontend": "...",
+    "backend": "...",
+    "database": "...",
+    "hosting": "...",
+    "reasoning": "..."
+  },
+  "folder_structure": ["...", "..."],
+  "guidelines": ["...", "..."]
 }
 """
 
 
-def build_tech_stack_prompt(project_description: str, requirements: list, features: list, preferred_language: str = None) -> str:
-    req_text = "\n".join(f"- {r.description}" for r in requirements)
-    feat_text = "\n".join(f"- {f.canonical_name}: {f.description}" for f in features)
-    context = (
-        f"Project description: {project_description}\n\n"
-        f"Requirements:\n{req_text}\n\n"
-        f"Features:\n{feat_text}\n"
+def build_tech_stack_prompt(project_type: str, feature_names: list, scale_text: str) -> str:
+    return (
+        f"Project type: {project_type}\n"
+        f"Features: {', '.join(feature_names)}\n"
+        f"Expected scale: {scale_text or 'not specified'}\n\n"
+        f"Recommend the best tech stack, folder structure, and development guidelines for this project."
     )
-    if preferred_language:
-        context += f"\nUser preference: {preferred_language}"
-    return context
