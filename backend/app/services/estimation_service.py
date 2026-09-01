@@ -8,15 +8,17 @@ from app.estimation.rules import (
     get_integration_multiplier,
     get_scale_multiplier,
 )
+from app.ml.predictor import predict_effort_hours
 import uuid
 
-WEEKLY_HOURS_PER_ROLE = 30  # assumed part-time capacity per role, per week
+WEEKLY_HOURS_PER_ROLE = 30
 
 
 def calculate_estimate(db: Session, project_id: uuid.UUID):
     features = db.query(Feature).filter(Feature.project_id == project_id).all()
     feature_ids = [f.id for f in features]
     complexity_by_feature = {f.id: f.complexity for f in features}
+    feature_names = {f.canonical_name for f in features}
 
     tasks = db.query(Task).filter(Task.feature_id.in_(feature_ids)).all()
 
@@ -58,7 +60,7 @@ def calculate_estimate(db: Session, project_id: uuid.UUID):
         total_max_hours += max_hours
 
         role = db.query(Role).filter(Role.id == task.role_id).first() if task.role_id else None
-        hourly_rate = role.hourly_rate if role else 12.0  # fallback rate if no role matched
+        hourly_rate = role.hourly_rate if role else 12.0
 
         if role:
             roles_used.add(role.id)
@@ -67,14 +69,12 @@ def calculate_estimate(db: Session, project_id: uuid.UUID):
         total_min_cost += min_hours * hourly_rate
         total_max_cost += max_hours * hourly_rate
 
-    # Complexity score
     complexity_values = {"low": 20, "medium": 50, "high": 85}
     if features:
         complexity_score = sum(complexity_values.get(f.complexity, 50) for f in features) / len(features)
     else:
         complexity_score = 0
 
-    # Timeline: assume roles can work in parallel, capacity scales with distinct roles used
     team_size = max(len(roles_used), 1)
     weekly_capacity = team_size * WEEKLY_HOURS_PER_ROLE
 
@@ -82,10 +82,34 @@ def calculate_estimate(db: Session, project_id: uuid.UUID):
     timeline_weeks_min = total_min_hours / weekly_capacity
     timeline_weeks_max = total_max_hours / weekly_capacity
 
+    ml_features = {
+        "num_features": len(features),
+        "num_tasks": len(tasks),
+        "num_roles": len(roles_used),
+        "has_payment": 1 if any("PAYMENT" in n for n in feature_names) else 0,
+        "has_admin": 1 if any("ADMIN" in n or "DASHBOARD" in n for n in feature_names) else 0,
+        "has_mobile": 1 if any("MOBILE" in n for n in feature_names) else 0,
+        "has_realtime": 1 if any("REAL_TIME" in n or "TRACKING" in n for n in feature_names) else 0,
+        "num_integrations": len(integration_features),
+        "complexity_score": complexity_score,
+    }
+
+    try:
+        ml_predicted_hours = predict_effort_hours(ml_features)
+    except Exception:
+        ml_predicted_hours = None
+
+    if ml_predicted_hours is not None:
+        hybrid_expected_hours = round((0.6 * total_expected_hours) + (0.4 * ml_predicted_hours), 1)
+    else:
+        hybrid_expected_hours = round(total_expected_hours, 1)
+
     return {
         "min_hours": round(total_min_hours, 1),
         "expected_hours": round(total_expected_hours, 1),
         "max_hours": round(total_max_hours, 1),
+        "ml_predicted_hours": ml_predicted_hours,
+        "hybrid_expected_hours": hybrid_expected_hours,
         "min_cost": round(total_min_cost, 2),
         "expected_cost": round(total_expected_cost, 2),
         "max_cost": round(total_max_cost, 2),
