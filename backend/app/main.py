@@ -1,3 +1,4 @@
+from app.api import themes
 from app.api import risks
 from app.api import tech_stack
 from fastapi import FastAPI
@@ -25,6 +26,9 @@ app.include_router(tasks.router, prefix="/api/v1")
 app.include_router(estimate.router, prefix="/api/v1")
 app.include_router(tech_stack.router, prefix="/api/v1")
 app.include_router(risks.router, prefix="/api/v1")
+app.include_router(themes.router, prefix="/api/v1")
+
+
 @app.get("/")
 def root():
     return {"message": "ProjectScope AI backend is running"}
