@@ -32,6 +32,7 @@ def estimate_project(project_id: uuid.UUID, db: Session = Depends(get_db)):
         "ml_predicted_hours": result["ml_predicted_hours"],
         "hybrid_expected_hours": result["hybrid_expected_hours"],
         "complexity_score": saved.complexity_score,
+        "complexity_explanation": result["complexity_explanation"],
         "min_cost": saved.min_cost,
         "expected_cost": saved.expected_cost,
         "max_cost": saved.max_cost,

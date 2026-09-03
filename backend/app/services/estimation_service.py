@@ -13,6 +13,9 @@ import uuid
 
 WEEKLY_HOURS_PER_ROLE = 30
 
+RULE_WEIGHT = 0.6
+ML_WEIGHT = 0.4
+MODEL_VERSION = "v1"
 
 def calculate_estimate(db: Session, project_id: uuid.UUID):
     features = db.query(Feature).filter(Feature.project_id == project_id).all()
@@ -74,13 +77,55 @@ def calculate_estimate(db: Session, project_id: uuid.UUID):
         complexity_score = sum(complexity_values.get(f.complexity, 50) for f in features) / len(features)
     else:
         complexity_score = 0
+        # Explainable AI: generate explanations from structured calculation facts
+    complexity_level = (
+        "high" if complexity_score >= 70
+        else "medium" if complexity_score >= 40
+        else "low"
+    )
+
+    complexity_reasons = []
+
+    if len(features) > 10:
+        complexity_reasons.append(f"{len(features)} features")
+    elif len(features) > 0:
+        complexity_reasons.append(f"{len(features)} features")
+
+    if any("ADMIN" in n or "DASHBOARD" in n for n in feature_names):
+        complexity_reasons.append("an admin dashboard")
+
+    if any("PAYMENT" in n for n in feature_names):
+        complexity_reasons.append("payment processing")
+
+    if any("MOBILE" in n for n in feature_names):
+        complexity_reasons.append("mobile application support")
+
+    if len(integration_features) > 0:
+        complexity_reasons.append(
+            f"{len(integration_features)} external integration-related features"
+        )
+
+    if len(roles_used) > 1:
+        complexity_reasons.append(f"{len(roles_used)} development roles")
+
+    if complexity_reasons:
+        complexity_explanation = (
+            f"Complexity is {complexity_level} because the project contains "
+            + ", ".join(complexity_reasons) + "."
+        )
+    else:
+        complexity_explanation = (
+            f"Complexity is {complexity_level} based on the project's "
+            f"{len(features)} features and calculated complexity score."
+        )    
 
     team_size = max(len(roles_used), 1)
     weekly_capacity = team_size * WEEKLY_HOURS_PER_ROLE
 
-    timeline_weeks_expected = total_expected_hours / weekly_capacity
+
     timeline_weeks_min = total_min_hours / weekly_capacity
     timeline_weeks_max = total_max_hours / weekly_capacity
+   
 
     ml_features = {
         "num_features": len(features),
@@ -100,16 +145,24 @@ def calculate_estimate(db: Session, project_id: uuid.UUID):
         ml_predicted_hours = None
 
     if ml_predicted_hours is not None:
-        hybrid_expected_hours = round((0.6 * total_expected_hours) + (0.4 * ml_predicted_hours), 1)
+        hybrid_expected_hours = round(
+    (RULE_WEIGHT * total_expected_hours)
+    + (ML_WEIGHT * ml_predicted_hours),
+    1
+)
     else:
         hybrid_expected_hours = round(total_expected_hours, 1)
 
+    timeline_weeks_min = total_min_hours / weekly_capacity
+    timeline_weeks_max = total_max_hours / weekly_capacity
+    timeline_weeks_expected = hybrid_expected_hours / weekly_capacity  
+
     return {
-        "min_hours": round(total_min_hours, 1),
-        "expected_hours": round(total_expected_hours, 1),
-        "max_hours": round(total_max_hours, 1),
-        "ml_predicted_hours": ml_predicted_hours,
-        "hybrid_expected_hours": hybrid_expected_hours,
+    "min_hours": round(total_min_hours, 1),
+    "expected_hours": hybrid_expected_hours,
+    "max_hours": round(total_max_hours, 1),
+    "ml_predicted_hours": ml_predicted_hours,
+    "hybrid_expected_hours": hybrid_expected_hours,
         "min_cost": round(total_min_cost, 2),
         "expected_cost": round(total_expected_cost, 2),
         "max_cost": round(total_max_cost, 2),
@@ -117,5 +170,6 @@ def calculate_estimate(db: Session, project_id: uuid.UUID):
         "timeline_weeks_expected": round(timeline_weeks_expected, 1),
         "timeline_weeks_max": round(timeline_weeks_max, 1),
         "complexity_score": round(complexity_score, 1),
+        "complexity_explanation": complexity_explanation,
         "task_count": len(tasks),
     }
