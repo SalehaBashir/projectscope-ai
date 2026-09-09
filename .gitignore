@@ -5,3 +5,10 @@ node_modules/
 .DS_Store
 venv/
 .venv/
+trivy-*.json
+trivy-*.txt
+image*.tar
+image_extract2/
+ml-recovered/
+frontend.zip
+backend/.env.backup
