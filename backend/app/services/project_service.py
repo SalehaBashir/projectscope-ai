@@ -18,3 +18,34 @@ def get_project_by_id(db: Session, project_id: uuid.UUID):
 
 def get_all_projects(db: Session):
     return project_repository.list_projects(db)
+
+
+def update_existing_project(
+    db: Session,
+    project_id: uuid.UUID,
+    title: str = None,
+    description: str = None,
+    budget: str = None,
+    platform: str = None,
+):
+    return project_repository.update_project(
+        db,
+        project_id,
+        title=title,
+        description=description,
+        budget=budget,
+        platform=platform,
+    )
+
+
+def delete_existing_project(db: Session, project_id: uuid.UUID):
+    return project_repository.delete_project(db, project_id)
+
+
+def _get_owned_project_or_none(db: Session, project_id, organization_id):
+    project = project_repository.get_project(db, project_id)
+    if not project:
+        return None
+    if project.organization_id != organization_id:
+        return None
+    return project

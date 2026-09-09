@@ -11,6 +11,13 @@ class ProjectCreate(BaseModel):
     platform: Optional[str] = None
 
 
+class ProjectUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    budget: Optional[str] = None
+    platform: Optional[str] = None
+
+
 class ProjectResponse(BaseModel):
     id: UUID
     title: str

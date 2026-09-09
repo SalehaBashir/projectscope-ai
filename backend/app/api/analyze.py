@@ -3,13 +3,23 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.schemas.requirement_analysis import AnalyzeRequest
 from app.services.ai_analysis_service import analyze_and_save, AIAnalysisError
+from app.security.security import get_current_user
+from app.security.ownership import require_project_access
+from app.models.user import User
 import uuid
 
 router = APIRouter(prefix="/projects", tags=["AI Analysis"])
 
 
 @router.post("/{project_id}/analyze")
-def analyze_project(project_id: uuid.UUID, request: AnalyzeRequest, db: Session = Depends(get_db)):
+def analyze_project(
+    project_id: uuid.UUID,
+    request: AnalyzeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    require_project_access(project_id, db, current_user)
+
     try:
         result = analyze_and_save(
             db,
@@ -21,6 +31,8 @@ def analyze_project(project_id: uuid.UUID, request: AnalyzeRequest, db: Session 
         return {
             "project_type": result["project_type"],
             "users": result["users"],
+            "assumptions": result["assumptions"],
+            "missing_information": result["missing_information"],
             "requirements": [
                 {"id": r.id, "category": r.category, "description": r.description}
                 for r in result["requirements"]

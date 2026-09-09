@@ -1,4 +1,9 @@
 from app.ai.provider import AIProvider
+from app.metrics import (
+    AI_REQUESTS_TOTAL,
+    AI_REQUEST_DURATION,
+    AI_TOKENS_TOTAL,
+)
 import logging
 import os
 import time
@@ -106,6 +111,44 @@ def call_llm_with_metadata(
 
                 usage = getattr(response, "usage", None)
 
+                # Prometheus AI metrics
+                AI_REQUESTS_TOTAL.labels(
+                    provider="groq",
+                    model=model,
+                    status="success",
+                ).inc()
+
+                AI_REQUEST_DURATION.labels(
+                    provider="groq",
+                    model=model,
+                ).observe(
+                    time.perf_counter() - start_time
+                )
+
+                prompt_tokens = getattr(
+                    usage,
+                    "prompt_tokens",
+                    0,
+                ) or 0
+
+                completion_tokens = getattr(
+                    usage,
+                    "completion_tokens",
+                    0,
+                ) or 0
+
+                AI_TOKENS_TOTAL.labels(
+                    provider="groq",
+                    model=model,
+                    token_type="prompt",
+                ).inc(prompt_tokens)
+
+                AI_TOKENS_TOTAL.labels(
+                    provider="groq",
+                    model=model,
+                    token_type="completion",
+                ).inc(completion_tokens)
+
                 metadata = {
                     "provider": "groq",
                     "model": model,
@@ -133,7 +176,7 @@ def call_llm_with_metadata(
 
                 logger.info(
                     "llm_request_completed | "
-                    f"provider=groq | "
+                    "provider=groq | "
                     f"model={model} | "
                     f"fallback_used={fallback_used} | "
                     f"attempt={attempt + 1}"
@@ -147,6 +190,12 @@ def call_llm_with_metadata(
                 InternalServerError,
                 RateLimitError,
             ) as exc:
+
+                AI_REQUESTS_TOTAL.labels(
+                    provider="groq",
+                    model=model,
+                    status="error",
+                ).inc()
 
                 last_exception = exc
 

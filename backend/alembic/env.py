@@ -26,6 +26,7 @@ from app.models.task import Task
 from app.models.role import Role
 from app.models.estimate import Estimate
 from app.models.risk import Risk
+from app.models.feedback import Feedback
 
 
 # this is the Alembic Config object, which provides

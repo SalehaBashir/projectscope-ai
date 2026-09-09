@@ -1,8 +1,11 @@
 import json
 import uuid
-from app.repositories import llm_request_repository
+
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+
+from app.repositories import llm_request_repository
+from app.utils.ai_cost import calculate_ai_cost
 
 from app.ai.groq_client import call_llm_with_metadata
 from app.ai.prompts import (
@@ -33,7 +36,6 @@ def analyze_project_description(
         budget,
         platform,
     )
-
 
     # Add RAG knowledge as untrusted supporting context
     user_prompt += f"""
@@ -87,9 +89,19 @@ def analyze_and_save(
         budget,
         platform,
     )
+
     llm_metadata = result._llm_metadata
+
+    # Calculate estimated AI cost in USD
+    llm_metadata["estimated_ai_cost"] = calculate_ai_cost(
+        model=llm_metadata["model"],
+        prompt_tokens=llm_metadata["prompt_tokens"],
+        completion_tokens=llm_metadata["completion_tokens"],
+    )
+
+    # Save LLM request telemetry
     llm_request_repository.create_llm_request(
-         db=db,
+        db=db,
         project_id=project_id,
         provider=llm_metadata["provider"],
         model=llm_metadata["model"],

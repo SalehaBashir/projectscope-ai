@@ -1,6 +1,6 @@
 import json
 from sqlalchemy.orm import Session
-from app.ai.groq_client import call_llm
+from app.ai.groq_client import GroqProvider
 from app.ai.prompts import TASK_GENERATION_SYSTEM_PROMPT, build_task_generation_prompt
 from app.ai.task_library import get_baseline_tasks
 from app.repositories import feature_repository, role_repository
@@ -14,6 +14,7 @@ def generate_tasks_for_project(db: Session, project_id: uuid.UUID):
 
     features = feature_repository.list_features(db, project_id)
     all_created_tasks = []
+    ai_provider = GroqProvider()
 
     for feature in features:
         baseline_tasks = get_baseline_tasks(feature.canonical_name)
@@ -23,7 +24,10 @@ def generate_tasks_for_project(db: Session, project_id: uuid.UUID):
             prompt = build_task_generation_prompt(
                 feature.canonical_name, feature.description, baseline_tasks
             )
-            raw_response = call_llm(TASK_GENERATION_SYSTEM_PROMPT, prompt)
+            raw_response = ai_provider.generate(
+    TASK_GENERATION_SYSTEM_PROMPT,
+    prompt,
+)
             parsed = json.loads(raw_response)
             additional_tasks = parsed.get("additional_tasks", [])
         except Exception:

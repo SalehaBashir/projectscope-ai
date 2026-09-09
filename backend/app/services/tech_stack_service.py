@@ -1,6 +1,6 @@
 import json
 from sqlalchemy.orm import Session
-from app.ai.groq_client import call_llm
+from app.ai.groq_client import GroqProvider
 from app.ai.prompts import TECH_STACK_SYSTEM_PROMPT, build_tech_stack_prompt
 from app.schemas.tech_stack import TechStackResult
 from app.models.project import Project
@@ -34,11 +34,14 @@ def recommend_tech_stack(db: Session, project_id: uuid.UUID) -> TechStackResult:
     project_type = project.description[:100]
 
     prompt = build_tech_stack_prompt(project_type, feature_names, scale_text)
-
+    ai_provider = GroqProvider()
     last_error = None
     for attempt in range(2):
         try:
-            raw_response = call_llm(TECH_STACK_SYSTEM_PROMPT, prompt)
+            raw_response = ai_provider.generate(
+    TECH_STACK_SYSTEM_PROMPT,
+    prompt,
+)
             parsed = json.loads(raw_response)
             validated = TechStackResult(**parsed)
             return validated

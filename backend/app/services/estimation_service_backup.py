@@ -1,7 +1,3 @@
-from app.estimation.hybrid_estimator import reconcile_estimates
-from app.estimation.llm_estimator import estimate_with_llm
-from app.models.project import Project
-from app.services.explainability_service import build_estimation_explanation
 from app.estimation.risk_engine import generate_project_risks
 from app.estimation.timeline import calculate_task_schedule
 from sqlalchemy.orm import Session
@@ -19,6 +15,10 @@ import uuid
 
 
 WEEKLY_HOURS_PER_ROLE = 30
+
+RULE_WEIGHT = 0.6
+ML_WEIGHT = 0.4
+MODEL_VERSION = "v1"
 
 
 def calculate_complexity_score(
@@ -556,96 +556,50 @@ def calculate_estimate(db: Session, project_id: uuid.UUID):
     except Exception:
         ml_predicted_hours = None
 
-    # ---------------------------------------------------------
-    # Phase 17: Hybrid Rule + ML + LLM Estimation
-    # ---------------------------------------------------------
-
-    # Estimate project effort with LLM as an advisory source.
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id)
-        .first()
-    )
-
-    llm_estimated_hours = None
-    llm_estimation_reason = ""
-
-    if project:
-        try:
-            llm_result = estimate_with_llm(
-                description=project.description,
-                budget=project.budget,
-                platform=project.platform,
-            )
-
-            llm_estimated_hours = llm_result["estimated_hours"]
-            llm_estimation_reason = llm_result["reason"]
-
-        except Exception:
-            llm_estimated_hours = None
-
-    # Reconcile all available estimation sources.
-    hybrid_result = reconcile_estimates(
-        rule_hours=total_expected_hours,
-        ml_hours=ml_predicted_hours,
-        llm_hours=llm_estimated_hours,
-        data_quality=1.0,
-        model_performance=0.7478,
-    )
-
-    hybrid_expected_hours = hybrid_result.expected_hours
-
-    # ---------------------------------------------------------
-    # Phase 18: Explainable AI
-    # ---------------------------------------------------------
-
-    estimation_explanation = build_estimation_explanation(
-        rule_hours=hybrid_result.rule_hours,
-        ml_hours=ml_predicted_hours,
-        llm_hours=llm_estimated_hours,
-        final_hours=hybrid_result.expected_hours,
-        confidence=hybrid_result.confidence,
-        task_count=len(tasks),
-        feature_count=len(features),
-        role_count=len(roles_used),
-        complexity_score=complexity_score,
-    )
+    if ml_predicted_hours is not None:
+        hybrid_expected_hours = round(
+            (RULE_WEIGHT * total_expected_hours)
+            + (ML_WEIGHT * ml_predicted_hours),
+            1,
+        )
+    else:
+        hybrid_expected_hours = round(
+            total_expected_hours,
+            1,
+        )
 
     # ---------------------------------------------------------
     # Timeline
     # ---------------------------------------------------------
-    # Use the same reconciled min/expected/max values that
-    # are returned by the hybrid estimator. This guarantees
-    # that timeline is consistent with the final estimation.
     timeline_weeks_min = (
-        hybrid_result.min_hours / weekly_capacity
-    )
-
-    timeline_weeks_expected = (
-        hybrid_result.expected_hours / weekly_capacity
+        total_min_hours / weekly_capacity
     )
 
     timeline_weeks_max = (
-        hybrid_result.max_hours / weekly_capacity
+        total_max_hours / weekly_capacity
     )
 
+    timeline_weeks_expected = (
+        hybrid_expected_hours / weekly_capacity
+    )
     risks = generate_project_risks(
-        db=db,
-        project_id=project_id,
-        complexity_score=complexity_score,
+    db=db,
+    project_id=project_id,
+    complexity_score=complexity_score,
     )
 
     return {
-        "rule_hours": hybrid_result.rule_hours,
-        "min_hours": hybrid_result.min_hours,
-        "expected_hours": hybrid_result.expected_hours,
-        "max_hours": hybrid_result.max_hours,
+        "min_hours": round(
+            total_min_hours,
+            1,
+        ),
+        "expected_hours": hybrid_expected_hours,
+        "max_hours": round(
+            total_max_hours,
+            1,
+        ),
         "ml_predicted_hours": ml_predicted_hours,
         "hybrid_expected_hours": hybrid_expected_hours,
-        "llm_estimated_hours": llm_estimated_hours,
-        "confidence": hybrid_result.confidence,
-        "estimator_version": hybrid_result.estimator_version,
-        "reconciliation_policy": hybrid_result.reconciliation_policy,
         "min_cost": round(
             total_min_cost,
             2,
@@ -672,7 +626,6 @@ def calculate_estimate(db: Session, project_id: uuid.UUID):
         ),
         "complexity_score": complexity_score,
         "complexity_explanation": complexity_explanation,
-        "estimation_explanation": estimation_explanation,
         "task_count": len(tasks),
         "schedule": schedule,
         "risks": risks,
