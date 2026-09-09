@@ -17,6 +17,9 @@ def create_risks(db: Session, project_id: uuid.UUID, risks: list):
             probability=r["probability"],
             impact=r["impact"],
             mitigation=r["mitigation"],
+            category=r["category"],
+            severity=r["severity"],
+            risk_score=r["risk_score"],
         )
         db.add(new_risk)
         created.append(new_risk)
