@@ -1,0 +1,325 @@
+[
+  {
+    "name": "SaaS Application",
+    "approved": true,
+    "description": "A software-as-a-service application delivered through the web, usually with user accounts, subscription plans, dashboards, administration and cloud infrastructure.",
+    "keywords": [
+      "saas",
+      "subscription",
+      "cloud",
+      "dashboard",
+      "platform",
+      "software"
+    ],
+    "requirements": [
+      "User authentication and account management",
+      "Role-based access control",
+      "User dashboard",
+      "Administrative dashboard",
+      "Subscription or plan management",
+      "Secure API communication",
+      "Cloud deployment",
+      "Application monitoring"
+    ],
+    "features": [
+      "User registration and login",
+      "User profile management",
+      "Dashboard",
+      "Admin dashboard",
+      "Subscription management",
+      "Notifications",
+      "Usage monitoring"
+    ],
+    "integrations": [
+      "Payment provider",
+      "Email service",
+      "Cloud hosting"
+    ],
+    "risks": [
+      "Scalability",
+      "Security",
+      "Service availability",
+      "Changing subscription requirements"
+    ]
+  },
+  {
+    "name": "E-Commerce Application",
+    "approved": true,
+    "description": "An online shopping platform where customers browse products, manage carts, place orders and make payments.",
+    "keywords": [
+      "ecommerce",
+      "e-commerce",
+      "shopping",
+      "store",
+      "products",
+      "cart",
+      "orders",
+      "payment"
+    ],
+    "requirements": [
+      "Product catalog management",
+      "Product search and filtering",
+      "Shopping cart",
+      "Order management",
+      "Secure payment processing",
+      "Customer account management",
+      "Order tracking",
+      "Administrative product management"
+    ],
+    "features": [
+      "Product listing",
+      "Product search",
+      "Product filtering",
+      "Shopping cart",
+      "Checkout",
+      "Payment processing",
+      "Order history",
+      "Order tracking",
+      "Admin product management"
+    ],
+    "integrations": [
+      "Payment gateway",
+      "Email service",
+      "Shipping provider"
+    ],
+    "risks": [
+      "Payment failures",
+      "Inventory consistency",
+      "Security",
+      "High traffic during peak periods"
+    ]
+  },
+  {
+    "name": "FinTech Application",
+    "approved": true,
+    "description": "A financial technology application involving financial accounts, transactions, payments, reporting or other sensitive financial operations.",
+    "keywords": [
+      "fintech",
+      "finance",
+      "financial",
+      "banking",
+      "transaction",
+      "payment",
+      "wallet",
+      "money"
+    ],
+    "requirements": [
+      "Strong authentication",
+      "Secure transaction processing",
+      "Financial data protection",
+      "Transaction history",
+      "Audit logging",
+      "Role-based authorization",
+      "Fraud monitoring",
+      "Reliable data storage"
+    ],
+    "features": [
+      "User accounts",
+      "Financial dashboard",
+      "Transaction management",
+      "Transaction history",
+      "Payment processing",
+      "Reports",
+      "Audit logs"
+    ],
+    "integrations": [
+      "Payment provider",
+      "Banking API",
+      "Identity verification service"
+    ],
+    "risks": [
+      "Security vulnerabilities",
+      "Fraud",
+      "Financial data loss",
+      "Regulatory requirements",
+      "Transaction failures"
+    ]
+  },
+  {
+    "name": "Healthcare Application",
+    "approved": true,
+    "description": "A healthcare platform supporting patients, healthcare professionals, appointments, records or health-related workflows.",
+    "keywords": [
+      "healthcare",
+      "health",
+      "hospital",
+      "clinic",
+      "doctor",
+      "patient",
+      "medical",
+      "appointment"
+    ],
+    "requirements": [
+      "Secure user authentication",
+      "Patient profile management",
+      "Appointment management",
+      "Healthcare professional management",
+      "Secure data storage",
+      "Access control",
+      "Audit logging",
+      "Privacy protection"
+    ],
+    "features": [
+      "Patient registration",
+      "Doctor profiles",
+      "Appointment booking",
+      "Appointment management",
+      "Patient dashboard",
+      "Healthcare dashboard",
+      "Notifications"
+    ],
+    "integrations": [
+      "Email service",
+      "SMS service",
+      "Video consultation service"
+    ],
+    "risks": [
+      "Privacy",
+      "Unauthorized access",
+      "Sensitive data exposure",
+      "Availability",
+      "Regulatory compliance"
+    ]
+  },
+  {
+    "name": "Marketplace Application",
+    "approved": true,
+    "description": "A platform connecting multiple groups of users such as buyers and sellers, service providers and customers.",
+    "keywords": [
+      "marketplace",
+      "seller",
+      "buyer",
+      "vendor",
+      "provider",
+      "customer",
+      "listing"
+    ],
+    "requirements": [
+      "Multiple user roles",
+      "Seller or provider profiles",
+      "Listings management",
+      "Search and filtering",
+      "Messaging",
+      "Reviews and ratings",
+      "Payment processing",
+      "Administrative moderation"
+    ],
+    "features": [
+      "User profiles",
+      "Seller profiles",
+      "Listings",
+      "Search",
+      "Filtering",
+      "Messaging",
+      "Reviews",
+      "Ratings",
+      "Payments",
+      "Admin moderation"
+    ],
+    "integrations": [
+      "Payment provider",
+      "Messaging service",
+      "Email service"
+    ],
+    "risks": [
+      "Fraud",
+      "Content moderation",
+      "Payment failures",
+      "Scalability",
+      "User trust"
+    ]
+  },
+  {
+    "name": "Project Management Application",
+    "approved": true,
+    "description": "A platform used by teams to manage projects, requirements, tasks, users, progress, deadlines and collaboration.",
+    "keywords": [
+      "project",
+      "management",
+      "task",
+      "team",
+      "milestone",
+      "deadline",
+      "requirement",
+      "collaboration"
+    ],
+    "requirements": [
+      "Project creation and management",
+      "Task management",
+      "Team member management",
+      "Role-based access",
+      "Project progress tracking",
+      "Milestone management",
+      "Notifications",
+      "Reporting"
+    ],
+    "features": [
+      "Project dashboard",
+      "Task creation",
+      "Task assignment",
+      "Task status tracking",
+      "Milestones",
+      "Team management",
+      "Progress reports",
+      "Notifications"
+    ],
+    "integrations": [
+      "Email service",
+      "Calendar service",
+      "Notification service"
+    ],
+    "risks": [
+      "Complex permissions",
+      "Scalability",
+      "Data consistency",
+      "Changing project requirements"
+    ]
+  },
+  {
+    "name": "AI/ML Application",
+    "approved": true,
+    "description": "An application that uses artificial intelligence or machine learning models to analyze data, generate predictions, recommendations or automated outputs.",
+    "keywords": [
+      "ai",
+      "ml",
+      "machine learning",
+      "artificial intelligence",
+      "model",
+      "prediction",
+      "recommendation",
+      "llm",
+      "generative"
+    ],
+    "requirements": [
+      "AI model integration",
+      "Input validation",
+      "Model inference pipeline",
+      "Prediction result handling",
+      "Error handling",
+      "Model monitoring",
+      "Logging",
+      "Data privacy"
+    ],
+    "features": [
+      "AI analysis",
+      "Prediction",
+      "Recommendation engine",
+      "AI-generated content",
+      "Model monitoring",
+      "Inference API"
+    ],
+    "integrations": [
+      "LLM provider",
+      "Machine learning model",
+      "Cloud storage"
+    ],
+    "risks": [
+      "Incorrect AI output",
+      "Model performance",
+      "Inference latency",
+      "AI provider availability",
+      "Data privacy",
+      "Model drift"
+    ]
+  }
+]
