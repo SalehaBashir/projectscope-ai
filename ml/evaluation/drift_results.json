@@ -1,0 +1,49 @@
+{
+  "reference_dataset": "projects_processed.csv",
+  "current_dataset": "projects_processed.csv",
+  "method": "Population Stability Index (PSI)",
+  "thresholds": {
+    "no_significant_drift": "< 0.10",
+    "moderate_drift": "0.10 - 0.25",
+    "significant_drift": ">= 0.25"
+  },
+  "overall_drift_detected": false,
+  "features": {
+    "num_features": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    },
+    "num_tasks": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    },
+    "num_roles": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    },
+    "has_payment": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    },
+    "has_admin": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    },
+    "has_mobile": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    },
+    "has_realtime": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    },
+    "num_integrations": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    },
+    "complexity_score": {
+      "psi": 0.0,
+      "status": "No significant drift"
+    }
+  }
+}
