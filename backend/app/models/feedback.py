@@ -10,6 +10,7 @@ class Feedback(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), nullable=False)
+    organization_id = Column(UUID(as_uuid=True), nullable=False)
     user_id = Column(UUID(as_uuid=True), nullable=True)
     task_id = Column(UUID(as_uuid=True), nullable=True)
 

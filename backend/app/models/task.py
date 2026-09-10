@@ -9,6 +9,7 @@ class Task(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     feature_id = Column(UUID(as_uuid=True), nullable=False)
+    organization_id = Column(UUID(as_uuid=True), nullable=False)
     role_id = Column(UUID(as_uuid=True), nullable=True)
 
     title = Column(String, nullable=False)

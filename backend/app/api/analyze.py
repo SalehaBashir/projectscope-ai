@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.schemas.requirement_analysis import AnalyzeRequest
@@ -13,8 +13,9 @@ router = APIRouter(prefix="/projects", tags=["AI Analysis"])
 
 @router.post("/{project_id}/analyze")
 def analyze_project(
+    request: Request,
     project_id: uuid.UUID,
-    request: AnalyzeRequest,
+    body: AnalyzeRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -24,10 +25,20 @@ def analyze_project(
         result = analyze_and_save(
             db,
             project_id=project_id,
-            description=request.description,
-            budget=request.budget,
-            platform=request.platform,
+            organization_id=current_user.organization_id,
+            description=body.description,
+            budget=body.budget,
+            platform=body.platform,       
         )
+        llm_metadata = result.get("llm_metadata", {})
+
+        request.state.organization_id = current_user.organization_id
+        request.state.project_id = project_id
+        request.state.model_version = llm_metadata.get("model")
+        request.state.prompt_tokens = llm_metadata.get("prompt_tokens")
+        request.state.completion_tokens = llm_metadata.get("completion_tokens")
+        request.state.estimated_ai_cost = llm_metadata.get("estimated_ai_cost")  
+
         return {
             "project_type": result["project_type"],
             "users": result["users"],

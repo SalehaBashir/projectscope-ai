@@ -9,6 +9,7 @@ class ThemeSelection(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), nullable=False, unique=True)
+    organization_id = Column(UUID(as_uuid=True), nullable=False)
 
     theme_id = Column(String, nullable=False)   # references THEME_PRESETS[i]["id"], e.g. "vibrant_marketplace"
     source = Column(String, nullable=False, default="ai_suggested")  # "ai_suggested" | "user_selected"

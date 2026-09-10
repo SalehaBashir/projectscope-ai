@@ -9,6 +9,7 @@ class Risk(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), nullable=False)
+    organization_id = Column(UUID(as_uuid=True), nullable=False)
     category = Column(String, nullable=False, default="technical")
     severity = Column(String, nullable=False, default="medium")
     risk_score = Column(Float, nullable=False, default=4.0)

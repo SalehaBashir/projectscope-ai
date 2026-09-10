@@ -10,6 +10,7 @@ class LLMRequest(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), nullable=True)
+    organization_id = Column(UUID(as_uuid=True), nullable=False)
 
     provider = Column(String, nullable=False)
     model = Column(String, nullable=False)

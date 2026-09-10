@@ -9,6 +9,7 @@ from app.models.llm_request import LLMRequest
 def create_llm_request(
     db: Session,
     project_id: Optional[uuid.UUID],
+    organization_id: uuid.UUID,
     provider: str,
     model: str,
     prompt_tokens: Optional[float] = None,
@@ -20,6 +21,7 @@ def create_llm_request(
 ):
     request = LLMRequest(
         project_id=project_id,
+        organization_id=organization_id,
         provider=provider,
         model=model,
         prompt_tokens=prompt_tokens,

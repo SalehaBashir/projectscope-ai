@@ -9,6 +9,7 @@ class TechStackRecommendation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), nullable=False)
+    organization_id = Column(UUID(as_uuid=True), nullable=False)
     stack = Column(JSONB, nullable=False)      # list of {category, recommendation, reason}
     summary = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
