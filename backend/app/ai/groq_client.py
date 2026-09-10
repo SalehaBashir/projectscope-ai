@@ -1,3 +1,4 @@
+from app.observability.context import set_ai_context
 from app.ai.provider import AIProvider
 from app.metrics import (
     AI_REQUESTS_TOTAL,

@@ -1,3 +1,4 @@
+
 REQUIREMENT_ANALYZER_SYSTEM_PROMPT = """You are a senior software requirements analyst.
 
 Given a natural-language project description, extract structured requirements and features.
@@ -17,16 +18,46 @@ Rules:
 - confidence is a float between 0 and 1, representing how certain you are that this requirement/feature was actually intended, based on how explicitly it was stated.
 - assumptions should list only reasonable assumptions made because the project description does not provide enough detail. Do not present assumptions as confirmed facts.
 - missing_information should list important project details that are needed for more reliable requirements or estimation but were not provided. Do not invent answers for missing information.
+
+IMPORTANT OUTPUT REQUIREMENTS:
+- The response MUST contain all six top-level keys:
+  "project_type", "users", "requirements", "features", "assumptions", "missing_information".
+- The "features" key is REQUIRED in every response.
+- The "features" value MUST always be a JSON array.
+- If no features can be confidently extracted, return "features": [].
+- Never omit the "features" key.
+- The "requirements" key is also REQUIRED and must always be a JSON array.
+- If no requirements can be confidently extracted, return "requirements": [].
+- The "users" key is REQUIRED and must always be a JSON array.
+- "assumptions" and "missing_information" must always be JSON arrays, even when empty.
+- Do not return Markdown, code fences, explanations, comments, or any text outside the JSON object.
+- Return syntactically valid JSON only.
+- Do not use trailing commas.
+- Make sure every feature object contains all five required fields:
+  "canonical_name", "description", "priority", "complexity", "confidence".
+- Make sure every requirement object contains all three required fields:
+  "category", "text", "confidence".
+
 Return ONLY valid JSON in this exact structure, nothing else:
 
 {
   "project_type": "ecommerce",
   "users": ["customer", "admin"],
   "requirements": [
-    {"category": "functional", "text": "...", "confidence": 0.9}
+    {
+      "category": "functional",
+      "text": "...",
+      "confidence": 0.9
+    }
   ],
-    "features": [
-    {"canonical_name": "AUTHENTICATION", "description": "...", "priority": "high", "complexity": "medium", "confidence": 0.9}
+  "features": [
+    {
+      "canonical_name": "AUTHENTICATION",
+      "description": "...",
+      "priority": "high",
+      "complexity": "medium",
+      "confidence": 0.9
+    }
   ],
   "assumptions": [
     "Authentication method was not specified."
@@ -38,12 +69,20 @@ Return ONLY valid JSON in this exact structure, nothing else:
 }
 """
 
-def build_user_prompt(description: str, budget: str = None, platform: str = None) -> str:
+
+def build_user_prompt(
+    description: str,
+    budget: str = None,
+    platform: str = None,
+) -> str:
     context = f"Project description:\n{description}\n"
+
     if budget:
         context += f"\nBudget: {budget}"
+
     if platform:
         context += f"\nTarget platform: {platform}"
+
     return context
 
 
@@ -64,14 +103,25 @@ Return ONLY valid JSON in this exact structure, nothing else:
 
 {
   "additional_tasks": [
-    {"title": "...", "role": "Backend Developer", "base_hours": 5}
+    {
+      "title": "...",
+      "role": "Backend Developer",
+      "base_hours": 5
+    }
   ]
 }
 """
 
 
-def build_task_generation_prompt(feature_name: str, feature_description: str, baseline_tasks: list) -> str:
-    baseline_titles = ", ".join(t["title"] for t in baseline_tasks)
+def build_task_generation_prompt(
+    feature_name: str,
+    feature_description: str,
+    baseline_tasks: list,
+) -> str:
+    baseline_titles = ", ".join(
+        t["title"] for t in baseline_tasks
+    )
+
     return (
         f"Feature: {feature_name}\n"
         f"Description: {feature_description}\n"
@@ -111,7 +161,11 @@ Return ONLY valid JSON in this exact structure, nothing else:
 """
 
 
-def build_tech_stack_prompt(project_type: str, feature_names: list, scale_text: str) -> str:
+def build_tech_stack_prompt(
+    project_type: str,
+    feature_names: list,
+    scale_text: str,
+) -> str:
     return (
         f"Project type: {project_type}\n"
         f"Features: {', '.join(feature_names)}\n"
