@@ -68,6 +68,7 @@ class TestRateLimiting:
 
 
 class TestPromptInjectionDefense:
+
    def test_injection_attempt_does_not_leak_system_prompt(self, monkeypatch, client):
     """
     Verify that malicious project descriptions are treated as untrusted

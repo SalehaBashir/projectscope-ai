@@ -60,6 +60,21 @@ def gather_report_data(db: Session, project_id: uuid.UUID) -> dict:
     tech = tech_stack_repository.get_recommendation(db, project_id)
     mvp = generate_mvp_recommendation(db, project_id)
 
+    # LLM analysis metadata saved on the project
+    assumptions = getattr(project, "assumptions", None)
+    missing_information = getattr(
+        project,
+        "missing_information",
+        None,
+    )
+
+    # Real confidence from the latest estimate
+    confidence = (
+        getattr(estimate, "confidence", None)
+        if estimate
+        else None
+    )
+
     tech_stack = []
     if tech and tech.stack:
         if isinstance(tech.stack, list):
@@ -79,6 +94,9 @@ def gather_report_data(db: Session, project_id: uuid.UUID) -> dict:
         "risks": risks,
         "tech_stack": tech_stack,
         "mvp": mvp,
+        "assumptions": assumptions,
+        "missing_information": missing_information,
+        "confidence": confidence,
     }
 
 
@@ -211,18 +229,80 @@ def generate_pdf(data: dict) -> bytes:
     for line in exec_lines:
         story.append(Paragraph(line, body))
 
-    # Assumptions / limitations
+
+    # Assumptions / Missing Information / Confidence
     story.append(Spacer(1, 6))
-    story.append(Paragraph("Assumptions &amp; Limitations", h2))
     story.append(
-        Paragraph(
-            "These estimates are generated from the project description, extracted "
-            "features and deterministic estimation rules combined with an ML model. "
-            "They are planning aids, not guarantees. Figures assume a standard "
-            "engineering team and do not include unforeseen scope creep.",
-            body,
-        )
+        Paragraph("Assumptions &amp; Missing Information", h2)
     )
+
+    assumptions = data.get("assumptions")
+    missing_information = data.get("missing_information")
+    confidence = data.get("confidence")
+
+    if confidence is not None:
+        story.append(
+            Paragraph(
+                f"<b>Analysis Confidence:</b> {float(confidence):.1%}",
+                body,
+            )
+        )
+
+    if assumptions:
+        story.append(
+            Paragraph("<b>Assumptions:</b>", body)
+        )
+
+        if isinstance(assumptions, list):
+            for item in assumptions:
+                story.append(
+                    Paragraph(
+                        f"• {str(item)}",
+                        body,
+                    )
+                )
+        else:
+            story.append(
+                Paragraph(
+                    str(assumptions),
+                    body,
+                )
+            )
+    else:
+        story.append(
+            Paragraph(
+                "<b>Assumptions:</b> No explicit assumptions were recorded.",
+                body,
+            )
+        )
+
+    if missing_information:
+        story.append(
+            Paragraph("<b>Missing Information:</b>", body)
+        )
+
+        if isinstance(missing_information, list):
+            for item in missing_information:
+                story.append(
+                    Paragraph(
+                        f"• {str(item)}",
+                        body,
+                    )
+                )
+        else:
+            story.append(
+                Paragraph(
+                    str(missing_information),
+                    body,
+                )
+            )
+    else:
+        story.append(
+            Paragraph(
+                "<b>Missing Information:</b> No missing information was recorded.",
+                body,
+            )
+        )
 
     # Requirements
     story.append(Spacer(1, 6))
@@ -437,30 +517,55 @@ def generate_docx(data: dict) -> bytes:
 
     est = _section_heading_hours(data["estimate"])
 
-    document.add_heading("Executive Summary", level=1)
-    if est["expected_hours"]:
+    document.add_heading(
+        "Assumptions & Missing Information",
+        level=1,
+    )
+
+    assumptions = data.get("assumptions")
+    missing_information = data.get("missing_information")
+    confidence = data.get("confidence")
+
+    if confidence is not None:
         document.add_paragraph(
-            f"This project has {len(data['features'])} extracted features and is "
-            f"estimated at an expected {est['expected_hours']:.0f} hours "
-            f"(range {est['min_hours']:.0f}-{est['max_hours']:.0f} hours)."
-        )
-        document.add_paragraph(
-            f"Expected cost is ${est['expected_cost']:,.0f} "
-            f"(range ${est['min_cost']:,.0f}-${est['max_cost']:,.0f}), with an "
-            f"estimated timeline of approximately {est['timeline_weeks']:.1f} weeks."
-        )
-    else:
-        document.add_paragraph(
-            "This project has not been fully estimated yet. Run the analysis and "
-            "estimation pipeline first."
+            f"Analysis Confidence: {float(confidence):.1%}"
         )
 
-    document.add_heading("Assumptions & Limitations", level=1)
-    document.add_paragraph(
-        "These estimates are generated from the project description, extracted "
-        "features and deterministic estimation rules combined with an ML model. "
-        "They are planning aids, not guarantees."
-    )
+    p = document.add_paragraph()
+    p.add_run("Assumptions:").bold = True
+
+    if assumptions:
+        if isinstance(assumptions, list):
+            for item in assumptions:
+                document.add_paragraph(
+                    str(item),
+                    style="List Bullet",
+                )
+        else:
+            document.add_paragraph(str(assumptions))
+    else:
+        document.add_paragraph(
+            "No explicit assumptions were recorded."
+        )
+
+    p = document.add_paragraph()
+    p.add_run("Missing Information:").bold = True
+
+    if missing_information:
+        if isinstance(missing_information, list):
+            for item in missing_information:
+                document.add_paragraph(
+                    str(item),
+                    style="List Bullet",
+                )
+        else:
+            document.add_paragraph(
+                str(missing_information)
+            )
+    else:
+        document.add_paragraph(
+            "No missing information was recorded."
+        )
 
     document.add_heading("Requirements", level=1)
     if data["requirements"]:
