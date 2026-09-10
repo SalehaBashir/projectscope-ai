@@ -11,8 +11,6 @@ from app.metrics import (
     HTTP_REQUEST_DURATION,
     HTTP_REQUESTS_TOTAL,
 )
-
-
 logger = logging.getLogger("projectscope.request")
 logger.setLevel(logging.INFO)
 logger.propagate = False
@@ -70,13 +68,27 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     status=status,
                 ).inc()
 
+            organization_id = getattr(request.state, "organization_id", None)
+            project_id = request.path_params.get("project_id", None)
+
+            model_version = getattr(request.state, "model_version", None)
+            prompt_tokens = getattr(request.state, "prompt_tokens", None)
+            completion_tokens = getattr(request.state, "completion_tokens", None)
+            estimated_ai_cost = getattr(request.state, "estimated_ai_cost", None)
+
             log_message = (
                 f"request_completed | "
                 f"request_id={request_id} | "
+                f"organization_id={organization_id} | "
+                f"project_id={project_id} | "
                 f"method={method} | "
                 f"path={path} | "
                 f"status_code={status_code} | "
-                f"duration_ms={duration_ms}"
+                f"duration_ms={duration_ms} | "
+                f"model_version={model_version} | "
+                f"prompt_tokens={prompt_tokens} | "
+                f"completion_tokens={completion_tokens} | "
+                f"estimated_ai_cost={estimated_ai_cost}"
             )
 
             if status_code >= 500:
@@ -93,6 +105,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         except Exception:
             duration_seconds = time.perf_counter() - start_time
             duration_ms = round(duration_seconds * 1000, 2)
+            organization_id = getattr(request.state, "organization_id", None)
+            project_id = request.path_params.get("project_id", None)
 
             HTTP_REQUESTS_TOTAL.labels(
                 method=request.method,
@@ -114,6 +128,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             logger.exception(
                 f"request_failed | "
                 f"request_id={request_id} | "
+                f"organization_id={organization_id} | "
+                f"project_id={project_id} | "
                 f"method={request.method} | "
                 f"path={request.url.path} | "
                 f"duration_ms={duration_ms}"

@@ -1,6 +1,7 @@
+from app.observability.context import set_ai_context
 import json
 import uuid
-
+from app.models.project import Project
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -80,6 +81,7 @@ description. Do not invent missing project information.
 def analyze_and_save(
     db: Session,
     project_id: uuid.UUID,
+    organization_id: uuid.UUID,
     description: str,
     budget: str = None,
     platform: str = None,
@@ -98,11 +100,18 @@ def analyze_and_save(
         prompt_tokens=llm_metadata["prompt_tokens"],
         completion_tokens=llm_metadata["completion_tokens"],
     )
+    set_ai_context(
+        model=llm_metadata["version"],
+        prompt_tokens=llm_metadata["prompt_tokens"],
+        completion_tokens=llm_metadata["completion_tokens"],
+        estimated_cost=llm_metadata["estimated_ai_cost"],
+    )
 
     # Save LLM request telemetry
     llm_request_repository.create_llm_request(
         db=db,
         project_id=project_id,
+        organization_id=organization_id,
         provider=llm_metadata["provider"],
         model=llm_metadata["model"],
         prompt_tokens=llm_metadata["prompt_tokens"],
@@ -115,14 +124,23 @@ def analyze_and_save(
     saved_requirements = requirement_repository.create_requirements(
         db,
         project_id,
+        organization_id,
         [r.model_dump() for r in result.requirements],
     )
 
     saved_features = feature_repository.create_features(
         db,
         project_id,
+        organization_id,
         [f.model_dump() for f in result.features],
     )
+        # Phase 21: persist assumptions/missing_information for report generation
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if project is not None:
+        project.assumptions = result.assumptions or []
+        project.missing_information = result.missing_information or []
+        db.add(project)
+        db.commit()
 
     return {
         "project_type": result.project_type,
@@ -131,4 +149,6 @@ def analyze_and_save(
         "features": saved_features,
         "assumptions": result.assumptions,
         "missing_information": result.missing_information,
+        "llm_metadata": llm_metadata,
+
     }

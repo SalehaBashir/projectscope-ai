@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import os
-
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 import jwt
@@ -66,6 +65,7 @@ def decode_access_token(token: str) -> dict:
 
 
 def get_current_user(
+     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
@@ -101,5 +101,8 @@ def get_current_user(
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
+        # Phase 26: expose authenticated user on request.state for logging middleware
+    # Phase 26: expose organization_id on request.state for logging middleware
+    request.state.organization_id = str(user.organization_id)
 
     return user

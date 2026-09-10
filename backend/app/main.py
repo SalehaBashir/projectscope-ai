@@ -8,6 +8,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from app.api import health
+
 from app.api import (
     analyze,
     auth,
@@ -211,12 +213,9 @@ def root():
         "message": "ProjectScope AI backend is running"
     }
 
+app.include_router(health.router)
 
-@app.get("/health")
-def health():
-    return {
-        "status": "ok"
-    }
+
 @app.get("/metrics")
 def metrics():
     return Response(

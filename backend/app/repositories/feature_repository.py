@@ -3,12 +3,18 @@ from app.models.feature import Feature
 import uuid
 
 
-def create_features(db: Session, project_id: uuid.UUID, features: list):
+def create_features(
+    db: Session,
+    project_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    features: list,
+):
     """features: list of dicts with 'canonical_name', 'description', 'priority', 'complexity', 'confidence'"""
     created = []
     for feat in features:
         new_feat = Feature(
             project_id=project_id,
+            organization_id=organization_id,
             canonical_name=feat["canonical_name"],
             description=feat["description"],
             priority=feat["priority"],
