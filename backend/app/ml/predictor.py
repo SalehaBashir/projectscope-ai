@@ -21,5 +21,9 @@ def predict_effort_hours(features: dict) -> float:
     feature_columns = bundle["feature_columns"]
 
     row = [[features.get(col, 0) for col in feature_columns]]
+
+    scaler = bundle.get("scaler")
+    if scaler is not None:
+     row = scaler.transform(row)
     prediction = model.predict(row)[0]
     return round(float(prediction), 1)
