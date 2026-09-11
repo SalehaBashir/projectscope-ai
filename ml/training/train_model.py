@@ -73,8 +73,16 @@ else:
 print(f"\nBest model: {best_name}")
 
 model_path = os.path.join(MODEL_DIR, "effort_model.pkl")
+
 joblib.dump(
-    {"model": best_model, "scaler": scaler, "feature_columns": FEATURE_COLUMNS, "model_name": best_name},
+    {
+        "model": best_model,
+        "scaler": scaler,
+        "feature_columns": FEATURE_COLUMNS,
+        "model_name": best_name,
+        "model_version": "v1",
+    },
     model_path,
 )
+
 print(f"Saved model to {model_path}")

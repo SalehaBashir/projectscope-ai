@@ -10,10 +10,12 @@ from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from app.api import health
 
+
 from app.api import (
     analyze,
     auth,
     estimate,
+    ml,
     feedback,
     mvp,
     projects,
@@ -201,7 +203,7 @@ app.include_router(feedback.router, prefix="/api/v1")
 app.include_router(mvp.router, prefix="/api/v1")
 app.include_router(report.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
-
+app.include_router(ml.router, prefix="/api/v1")
 
 # ---------------------------------------------------------
 # Health
