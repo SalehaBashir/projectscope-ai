@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16
@@ -20,6 +18,20 @@ services:
     restart: always
     ports:
       - "6379:6379"
+
+  worker:
+    build: ./backend
+    container_name: projectscope-worker
+    restart: always
+    command: rq worker projectscope-jobs --url redis://redis:6379
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/projectscope
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      AI_PROVIDER_API_KEY: ${AI_PROVIDER_API_KEY}
+    depends_on:
+      - postgres
+      - redis
 
 volumes:
   postgres_data:

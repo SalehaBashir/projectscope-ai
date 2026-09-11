@@ -181,16 +181,12 @@ jobs:
   deploy-staging:
     runs-on: ubuntu-latest
     needs: integration-tests
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main'
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy to staging
-        run: |
-          echo "Deploy step goes here — depends on chosen host (Render/Railway/VPS)."
-          echo "Example for Render: curl the Render deploy hook URL stored in secrets.STAGING_DEPLOY_HOOK"
-        env:
-          STAGING_DEPLOY_HOOK: ${{ secrets.STAGING_DEPLOY_HOOK }}
+      - name: Trigger Render deploy
+        run: curl -X POST "${{ secrets.STAGING_DEPLOY_HOOK }}"
 
   # ---------------------------------------------------------
   # 8. Smoke tests (against staging)
