@@ -115,6 +115,7 @@ def submit_feedback(
     db: Session,
     project_id: uuid.UUID,
     user_id: uuid.UUID,
+    organization_id: uuid.UUID,
     actual_hours: float,
     task_id: uuid.UUID = None,
     estimated_hours: float = None,
@@ -143,6 +144,7 @@ def submit_feedback(
     feedback = feedback_repository.create_feedback(
         db=db,
         project_id=project_id,
+        organization_id=organization_id,
         actual_hours=actual_hours,
         user_id=user_id,
         task_id=task_id,

@@ -50,6 +50,7 @@ def create_feedback(
             db=db,
             project_id=project_id,
             user_id=current_user.id,
+            organization_id=current_user.organization_id,
             actual_hours=request.actual_hours,
             task_id=request.task_id,
             estimated_hours=request.estimated_hours,

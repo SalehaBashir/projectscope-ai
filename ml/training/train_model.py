@@ -13,7 +13,7 @@ DATA_PATH = os.path.join(
     "..",
     "data",
     "processed",
-    "projects_processed.csv",
+    "projects_with_feedback.csv",
 )
 MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
 os.makedirs(MODEL_DIR, exist_ok=True)

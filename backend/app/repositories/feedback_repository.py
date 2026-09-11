@@ -8,6 +8,7 @@ def create_feedback(
     db: Session,
     project_id: uuid.UUID,
     actual_hours: float,
+    organization_id: uuid.UUID,
     user_id: uuid.UUID = None,
     task_id: uuid.UUID = None,
     estimated_hours: float = None,
@@ -15,6 +16,7 @@ def create_feedback(
 ):
     new_feedback = Feedback(
         project_id=project_id,
+        organization_id=organization_id,
         user_id=user_id,
         task_id=task_id,
         estimated_hours=estimated_hours,
