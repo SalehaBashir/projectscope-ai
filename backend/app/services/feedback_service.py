@@ -114,8 +114,8 @@ def build_ml_training_rows(db: Session):
 def submit_feedback(
     db: Session,
     project_id: uuid.UUID,
-    user_id: uuid.UUID,
     organization_id: uuid.UUID,
+    user_id: uuid.UUID,
     actual_hours: float,
     task_id: uuid.UUID = None,
     estimated_hours: float = None,
