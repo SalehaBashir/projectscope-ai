@@ -65,6 +65,7 @@ jobs:
       - name: Run migrations
         run: alembic upgrade head
       - name: Run unit tests
+        working-directory: .
         run: pytest -m "not integration" --maxfail=1 --disable-warnings -q
 
   # ---------------------------------------------------------
