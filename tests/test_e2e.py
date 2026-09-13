@@ -27,7 +27,7 @@ def test_full_projectscope_e2e_flow(client, monkeypatch):
 
     Register
         -> Create Project
-        -> AI Analysis
+        -> AI Analysis (queued job)
         -> Generate Report
     """
 
@@ -148,6 +148,19 @@ def test_full_projectscope_e2e_flow(client, monkeypatch):
         fake_call_llm_with_metadata,
     )
 
+    # Phase 29: run the background job queue synchronously during this
+    # test so the /analyze job completes inline, without needing a
+    # separate worker process.
+    import app.api.analyze as analyze_mod
+    from rq import Queue
+
+    sync_queue = Queue(
+        "projectscope-jobs",
+        connection=analyze_mod.task_queue.connection,
+        is_async=False,
+    )
+    monkeypatch.setattr(analyze_mod, "task_queue", sync_queue)
+
     # ---------------------------------------------------------
     # 4. AI ANALYSIS
     # ---------------------------------------------------------
@@ -167,7 +180,18 @@ def test_full_projectscope_e2e_flow(client, monkeypatch):
 
     assert analysis_response.status_code == 200
 
-    analysis = analysis_response.json()
+    queued = analysis_response.json()
+    assert queued["status"] == "queued"
+
+    job_status_response = client.get(
+        f"/api/v1/projects/jobs/{queued['job_id']}"
+    )
+    assert job_status_response.status_code == 200
+
+    job_result = job_status_response.json()
+    assert job_result["status"] == "finished"
+
+    analysis = job_result["result"]
 
     assert analysis["project_type"] == "ecommerce"
     assert len(analysis["requirements"]) > 0
