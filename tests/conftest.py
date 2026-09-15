@@ -1,126 +1,196 @@
 import os
-import sys
-import uuid
-
-# Point the app at a dedicated test database BEFORE importing app modules,
-# because app.database.connection creates its engine from this env var.
-os.environ["DATABASE_URL"] = (
-    os.environ.get(
-        "TEST_DATABASE_URL",
-        "postgresql://postgres:postgres@localhost:5432/projectscope_test",
-    )
-)
-os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-pytest")
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
-# Disable the per-IP rate limiter in tests (TestClient shares one client IP).
-os.environ["DISABLE_RATE_LIMIT"] = "1"
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import text
+from fastapi.testclient import TestClient
 
-from app.database.connection import Base, engine, SessionLocal
-from app.models import (  # noqa: F401  ensure all models are registered
-    User,
-    Project,
-    Requirement,
-    Feature,
-    Task,
-    Role,
-    Estimate,
-    Risk,
-    TechStackRecommendation,
-    ThemeSelection,
-    Organization,
-    Milestone,
-    Prediction,
-    Feedback,
-    LLMRequest,
-)
+from app.database.connection import Base, engine, SessionLocal, get_db
 from app.main import app
 
+os.environ["APP_ENV"] = "test"
+
+import pytest
+from sqlalchemy import text
+from fastapi.testclient import TestClient
+
+# ---------------------------------------------------------------------------
+# Test database configuration
+# ---------------------------------------------------------------------------
+
+os.environ["DATABASE_URL"] = os.environ.get(
+    "TEST_DATABASE_URL",
+    os.environ.get(
+        "DATABASE_URL",
+        "postgresql://postgres:postgres@localhost:5432/projectscope_test",
+    ),
+)
+
+
+# ---------------------------------------------------------------------------
+# Database setup
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
-    # Create all tables in the test database
-    Base.metadata.create_all(bind=engine)
-    yield
-    # Leave the schema in place between runs; data is cleaned per test.
+    """
+    Create database tables and make the test database compatible with
+    the latest ProjectScope schema.
 
+    create_all() only creates missing tables; it does not add new columns
+    to existing tables. Therefore the IF NOT EXISTS ALTER statements below
+    keep an existing projectscope_test database compatible with the current
+    models/migrations.
+    """
+
+    Base.metadata.create_all(bind=engine)
+
+    with engine.begin() as conn:
+
+        # -------------------------------------------------------------------
+        # Phase 21: project analysis fields
+        # -------------------------------------------------------------------
+
+        conn.execute(
+            text(
+                "ALTER TABLE projects "
+                "ADD COLUMN IF NOT EXISTS assumptions "
+                "JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
+        )
+
+        conn.execute(
+            text(
+                "ALTER TABLE projects "
+                "ADD COLUMN IF NOT EXISTS missing_information "
+                "JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
+        )
+
+        # -------------------------------------------------------------------
+        # Phase 6: feature dependency fields
+        # -------------------------------------------------------------------
+
+        conn.execute(
+            text(
+                "ALTER TABLE features "
+                "ADD COLUMN IF NOT EXISTS dependencies "
+                "JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
+        )
+
+        conn.execute(
+            text(
+                "ALTER TABLE features "
+                "ADD COLUMN IF NOT EXISTS source_requirement_id UUID"
+            )
+        )
+
+        # -------------------------------------------------------------------
+        # Phase 2: organization_id on tenant-owned tables
+        # -------------------------------------------------------------------
+
+        conn.execute(
+            text(
+                "ALTER TABLE estimates "
+                "ADD COLUMN IF NOT EXISTS organization_id UUID"
+            )
+        )
+
+        conn.execute(
+            text(
+                "ALTER TABLE requirements "
+                "ADD COLUMN IF NOT EXISTS organization_id UUID"
+            )
+        )
+
+        conn.execute(
+            text(
+                "ALTER TABLE tasks "
+                "ADD COLUMN IF NOT EXISTS organization_id UUID"
+            )
+        )
+
+        conn.execute(
+            text(
+                "ALTER TABLE feedback "
+                "ADD COLUMN IF NOT EXISTS organization_id UUID"
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test database cleanup
+# ---------------------------------------------------------------------------
 
 @pytest.fixture(autouse=True)
-def clean_tables():
-    """Truncate all tables before/after every test so tests are fully isolated."""
-    table_names = ", ".join(
-        f'"{t.name}"' for t in Base.metadata.sorted_tables if t.name != "alembic_version"
-    )
-    stmt = text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE")
-    with engine.begin() as conn:
-        conn.execute(stmt)
+def clean_database():
+    """
+    Keep tests isolated by clearing test data after every test.
+
+    This prevents fixed test emails and other tenant-owned records from
+    leaking into subsequent tests.
+    """
+
     yield
+
     with engine.begin() as conn:
-        conn.execute(stmt)
+        conn.execute(
+            text(
+                """
+                TRUNCATE TABLE
+                    feedback,
+                    tasks,
+                    features,
+                    requirements,
+                    estimates,
+                    projects,
+                    users,
+                    organizations
+                RESTART IDENTITY CASCADE
+                """
+            )
+        )
 
 
-@pytest.fixture
-def db_session():
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
-
+# ---------------------------------------------------------------------------
+# Test client
+# ---------------------------------------------------------------------------
 
 @pytest.fixture
 def client():
+    """
+    FastAPI TestClient with the database dependency overridden
+    to use the test database session.
+    """
+
     def override_get_db():
-        session = SessionLocal()
+        db = SessionLocal()
         try:
-            yield session
+            yield db
         finally:
-            session.rollback()
-            session.close()
+            db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+
     with TestClient(app) as test_client:
         yield test_client
-    app.dependency_overrides.pop(get_db, None)
+
+    app.dependency_overrides.clear()
 
 
-def make_user(
-    db,
-    email: str = None,
-    full_name: str = "Test User",
-    organization_id: uuid.UUID = None,
-) -> User:
-    """Create a user + an organization, and seed roles once."""
-    from app.services.task_service import generate_tasks_for_project  # noqa
-    from app.repositories.role_repository import seed_roles
+# ---------------------------------------------------------------------------
+# Database session fixture
+# ---------------------------------------------------------------------------
 
-    seed_roles(db)
+@pytest.fixture
+def db():
+    """
+    Provide a database session for individual tests.
+    """
 
-    org_id = organization_id or uuid.uuid4()
-    user = User(
-        id=uuid.uuid4(),
-        email=email or f"{uuid.uuid4().hex}@test.com",
-        full_name=full_name,
-        hashed_password="x",
-        organization_id=org_id,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+    session = SessionLocal()
 
-
-def make_org_and_user(db) -> tuple:
-    org_id = uuid.uuid4()
-    org = Organization(id=org_id, name="Test Org", slug=uuid.uuid4().hex[:8])
-    db.add(org)
-    db.commit()
-    user = make_user(db, organization_id=org_id)
-    return org_id, user
-
-
-from app.database.connection import get_db  # noqa: E402
+    try:
+        yield session
+    finally:
+        session.close()

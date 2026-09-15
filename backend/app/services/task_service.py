@@ -1,14 +1,27 @@
+
 import json
+import uuid
+
 from sqlalchemy.orm import Session
+
 from app.ai.groq_client import GroqProvider
-from app.ai.prompts import TASK_GENERATION_SYSTEM_PROMPT, build_task_generation_prompt
+from app.ai.prompts import (
+    TASK_GENERATION_SYSTEM_PROMPT,
+    build_task_generation_prompt,
+)
 from app.ai.task_library import get_baseline_tasks
 from app.repositories import feature_repository, role_repository
+from app.models.project import Project
 from app.models.task import Task
-import uuid
 
 
 def generate_tasks_for_project(db: Session, project_id: uuid.UUID):
+    project = db.get(Project, project_id)
+    if not project:
+        raise ValueError("Project not found")
+
+    organization_id = project.organization_id
+
     role_repository.seed_roles(db)
     roles = {r.name: r for r in role_repository.list_roles(db)}
 
@@ -22,31 +35,38 @@ def generate_tasks_for_project(db: Session, project_id: uuid.UUID):
         additional_tasks = []
         try:
             prompt = build_task_generation_prompt(
-                feature.canonical_name, feature.description, baseline_tasks
+                feature.canonical_name,
+                feature.description,
+                baseline_tasks,
             )
             raw_response = ai_provider.generate(
-    TASK_GENERATION_SYSTEM_PROMPT,
-    prompt,
-)
+                TASK_GENERATION_SYSTEM_PROMPT,
+                prompt,
+            )
             parsed = json.loads(raw_response)
             additional_tasks = parsed.get("additional_tasks", [])
         except Exception:
-            additional_tasks = []  # if LLM fails, baseline tasks are still enough
+            additional_tasks = []
 
         combined = baseline_tasks + additional_tasks
 
         for task_data in combined:
             role = roles.get(task_data["role"])
+
             new_task = Task(
                 feature_id=feature.id,
+                organization_id=organization_id,
                 role_id=role.id if role else None,
                 title=task_data["title"],
                 base_hours=task_data["base_hours"],
             )
+
             db.add(new_task)
             all_created_tasks.append(new_task)
 
     db.commit()
+
     for t in all_created_tasks:
         db.refresh(t)
+
     return all_created_tasks

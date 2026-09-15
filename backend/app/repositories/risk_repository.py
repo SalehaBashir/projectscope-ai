@@ -8,11 +8,18 @@ def clear_risks(db: Session, project_id: uuid.UUID):
     db.commit()
 
 
-def create_risks(db: Session, project_id: uuid.UUID, risks: list):
+def create_risks(
+    db: Session,
+    project_id: uuid.UUID,
+    risks: list,
+    organization_id: uuid.UUID,
+):
     created = []
+
     for r in risks:
         new_risk = Risk(
             project_id=project_id,
+            organization_id=organization_id,
             description=r["description"],
             probability=r["probability"],
             impact=r["impact"],
@@ -21,11 +28,15 @@ def create_risks(db: Session, project_id: uuid.UUID, risks: list):
             severity=r["severity"],
             risk_score=r["risk_score"],
         )
+
         db.add(new_risk)
         created.append(new_risk)
+
     db.commit()
+
     for r in created:
         db.refresh(r)
+
     return created
 
 

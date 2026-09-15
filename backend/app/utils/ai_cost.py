@@ -1,3 +1,4 @@
+from app.observability.context import set_ai_context
 MODEL_PRICING_PER_1M = {
     "openai/gpt-oss-120b": {
         "input": 0.15,

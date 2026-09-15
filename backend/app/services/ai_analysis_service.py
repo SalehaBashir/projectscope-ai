@@ -101,7 +101,7 @@ def analyze_and_save(
         completion_tokens=llm_metadata["completion_tokens"],
     )
     set_ai_context(
-        model=llm_metadata["version"],
+        model=llm_metadata.get("version") or llm_metadata.get("model"),
         prompt_tokens=llm_metadata["prompt_tokens"],
         completion_tokens=llm_metadata["completion_tokens"],
         estimated_cost=llm_metadata["estimated_ai_cost"],

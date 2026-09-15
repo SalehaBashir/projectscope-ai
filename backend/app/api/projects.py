@@ -144,6 +144,8 @@ def recalculate(
             description=update.description if update else None,
             budget=update.budget if update else None,
             platform=update.platform if update else None,
+            organization_id=current_user.organization_id,
+
         )
     except RecalculationError as e:
         raise HTTPException(

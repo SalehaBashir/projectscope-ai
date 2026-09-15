@@ -1,24 +1,27 @@
+
 import hashlib
 import json
-import redis as redis_lib
-from app.observability.context import set_ai_context
-from app.ai.provider import AIProvider
-from app.metrics import (
-    AI_REQUESTS_TOTAL,
-    AI_REQUEST_DURATION,
-    AI_TOKENS_TOTAL,
-)
 import logging
 import os
 import time
 
+import redis as redis_lib
+from dotenv import load_dotenv
 from groq import (
     APIConnectionError,
     APITimeoutError,
     InternalServerError,
     RateLimitError,
 )
-from dotenv import load_dotenv
+
+from app.ai.provider import AIProvider
+from app.metrics import (
+    AI_REQUESTS_TOTAL,
+    AI_REQUEST_DURATION,
+    AI_TOKENS_TOTAL,
+)
+from app.observability.context import set_ai_context
+
 
 load_dotenv()
 
@@ -33,14 +36,30 @@ CLIENT_VERSION = "groq-client-v1.1"
 
 MAX_TOKENS = 2000
 MAX_RETRIES = 2
+RETRY_BACKOFF_SECONDS = 1
+
 _cache_client = None
+_client = None
+
+logger = logging.getLogger("projectscope.ai")
+logger.setLevel(logging.INFO)
 
 
 def _get_cache_client():
     global _cache_client
+
     if _cache_client is None:
         redis_url = os.getenv("REDIS_URL")
-        _cache_client = redis_lib.from_url(redis_url, decode_responses=True) if redis_url else None
+
+        _cache_client = (
+            redis_lib.from_url(
+                redis_url,
+                decode_responses=True,
+            )
+            if redis_url
+            else None
+        )
+
     return _cache_client
 
 
@@ -51,24 +70,33 @@ def _cache_key(system_prompt: str, user_prompt: str) -> str:
 
 def get_cached_response(system_prompt: str, user_prompt: str):
     client = _get_cache_client()
+
     if client is None:
         return None
-    cached = client.get(_cache_key(system_prompt, user_prompt))
+
+    cached = client.get(
+        _cache_key(system_prompt, user_prompt)
+    )
+
     return json.loads(cached) if cached else None
 
 
-def set_cached_response(system_prompt: str, user_prompt: str, response: str, ttl_seconds: int = 86400):
+def set_cached_response(
+    system_prompt: str,
+    user_prompt: str,
+    response,
+    ttl_seconds: int = 86400,
+):
     client = _get_cache_client()
+
     if client is None:
         return
-    client.setex(_cache_key(system_prompt, user_prompt), ttl_seconds, json.dumps(response))
 
-RETRY_BACKOFF_SECONDS = 1
-
-_client = None
-
-logger = logging.getLogger("projectscope.ai")
-logger.setLevel(logging.INFO)
+    client.setex(
+        _cache_key(system_prompt, user_prompt),
+        ttl_seconds,
+        json.dumps(response),
+    )
 
 
 def _get_client():
@@ -81,7 +109,8 @@ def _get_client():
 
         if not api_key:
             raise RuntimeError(
-                "AI_PROVIDER_API_KEY environment variable is required to call the LLM"
+                "AI_PROVIDER_API_KEY environment variable is required "
+                "to call the LLM"
             )
 
         from groq import Groq
@@ -103,8 +132,14 @@ def _request_model(
     return client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
         ],
         temperature=0.2,
         max_tokens=MAX_TOKENS,
@@ -117,13 +152,21 @@ def call_llm_with_metadata(
     user_prompt: str,
 ) -> tuple[str, dict]:
     """Call the primary model and fall back to a secondary model if needed."""
-    # Phase 32: skip the LLM entirely if we've analyzed this exact
-    # description before — saves cost and latency on repeated requests.
-    cached = get_cached_response(system_prompt, user_prompt)
-    if cached is not None:
-        cached_content, cached_metadata = cached
-        cached_metadata["cache_hit"] = True
-        return cached_content, cached_metadata
+
+    # Phase 32:
+    # Skip the LLM cache during tests so mocked fallback behaviour
+    # is always exercised.
+    if os.getenv("APP_ENV") != "test":
+        cached = get_cached_response(
+            system_prompt,
+            user_prompt,
+        )
+
+        if cached is not None:
+            cached_content, cached_metadata = cached
+            cached_metadata["cache_hit"] = True
+
+            return cached_content, cached_metadata
 
     start_time = time.perf_counter()
     client = _get_client()
@@ -213,6 +256,7 @@ def call_llm_with_metadata(
                     ),
                     "status": "success",
                     "fallback_used": fallback_used,
+                    "cache_hit": False,
                 }
 
                 logger.info(
@@ -223,11 +267,15 @@ def call_llm_with_metadata(
                     f"attempt={attempt + 1}"
                 )
 
-                metadata["cache_hit"] = False
                 content = response.choices[0].message.content
 
-                # Phase 32: cache this exact prompt's result for 24h
-                set_cached_response(system_prompt, user_prompt, (content, metadata))
+                # Cache only in non-test environments.
+                if os.getenv("APP_ENV") != "test":
+                    set_cached_response(
+                        system_prompt,
+                        user_prompt,
+                        (content, metadata),
+                    )
 
                 return content, metadata
 
@@ -249,7 +297,7 @@ def call_llm_with_metadata(
                 if attempt >= MAX_RETRIES:
                     logger.warning(
                         "llm_model_exhausted | "
-                        f"provider=groq | "
+                        "provider=groq | "
                         f"model={model} | "
                         f"fallback_used={fallback_used}"
                     )
@@ -259,7 +307,7 @@ def call_llm_with_metadata(
 
                 logger.warning(
                     "llm_request_retry | "
-                    f"provider=groq | "
+                    "provider=groq | "
                     f"model={model} | "
                     f"attempt={attempt + 1} | "
                     f"retry_in_seconds={backoff}"

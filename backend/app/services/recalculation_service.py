@@ -57,6 +57,7 @@ def recalculate_project(
     description: str = None,
     budget: str = None,
     platform: str = None,
+    organization_id: uuid.UUID = None
 ):
     """
     Re-run the full analysis pipeline for a revised project.
@@ -89,6 +90,7 @@ def recalculate_project(
             description=project.description,
             budget=project.budget,
             platform=project.platform,
+            organization_id=organization_id,
         )
         task_service.generate_tasks_for_project(db, project_id)
         risk_service.generate_risks_for_project(db, project_id)
