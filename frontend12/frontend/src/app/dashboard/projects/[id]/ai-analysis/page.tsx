@@ -51,7 +51,10 @@ export default function AIAnalysisPage() {
       setAnalyzing(true);
       setAnalysisError("");
       setStatus("Starting AI analysis...");
-
+      if (!project) {
+      setStatus("Project not found.");
+       return;
+      }
       const response: any = await analyzeProject(project.id, {
         description: description.trim(),
         budget: budget || undefined,
