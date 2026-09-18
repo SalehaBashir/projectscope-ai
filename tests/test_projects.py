@@ -1,4 +1,3 @@
-
 import uuid
 
 
@@ -91,7 +90,7 @@ class TestProjectsCRUD:
             json={
                 "title": "My App",
                 "description": "Build an app",
-                "budget": "5000",
+                "budget": "10000",
                 "platform": "web",
             },
             headers=_auth(token),
@@ -150,7 +149,7 @@ class TestProjectsCRUD:
             f"/api/v1/projects/{created['id']}",
             json={
                 "title": "New Title",
-                "budget": "9999",
+                "budget": "10000",
             },
             headers=_auth(token),
         )
@@ -160,7 +159,7 @@ class TestProjectsCRUD:
         body = res.json()
 
         assert body["title"] == "New Title"
-        assert body["budget"] == "9999"
+        assert body["budget"] == "10000"
         assert body["description"] == "old desc"
 
     def test_delete_project(self, client):
@@ -231,4 +230,3 @@ class TestProjectsCRUD:
         assert "estimate" in body
         assert body["estimate"]["expected_hours"] > 0
         assert body["project"]["title"] == "Recalc"
-
