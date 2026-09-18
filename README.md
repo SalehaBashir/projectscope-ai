@@ -1,22 +1,89 @@
-# projectscope-ai
-Turning a rough idea into a real project plan usually means hours of back-and-forth between a client and a dev team — figuring out what needs to be built, who should build it, how long it'll take, and what it'll cost.
+# ProjectScope AI
 
-ProjectScope AI shortens that process. A user describes their idea in plain English, and the system breaks it down into concrete requirements, 
-features, and tasks — then estimates effort, cost, timeline, and risk using a combination of rule-based logic, machine learning, and LLM reasoning. The goal isn't to replace a project manager's judgment, 
-but to give founders, clients, and teams a fast, explainable starting point.
+> Transforming project ideas into structured, actionable development plans.
 
-## Status
-🚧 Actively in development — MVP build in progress.
+ProjectScope AI is an AI-powered project planning platform that transforms a natural-language project idea into a structured development plan.
 
-## Tech Stack
+Users can describe their project in plain English, and the system analyzes the idea to generate requirements, features, development tasks, team roles, effort estimates, costs, timelines, risks, MVP scope, and technology recommendations.
+
+The platform combines Large Language Models, deterministic rule-based logic, and machine learning to provide a structured and explainable approach to early-stage project planning.
+
+## Project Status
+
+**MVP — Actively Developed**
+
+Core project planning workflows and backend services are implemented and tested.
+
+**Backend Test Suite:** 67 passed · 0 failed
+
+## Core Features
+
+- User authentication and authorization
+- Organization-based project management
+- AI-powered project analysis
+- Requirement generation
+- Feature identification
+- Development task breakdown
+- Team and role allocation
+- Effort estimation
+- Cost estimation
+- Timeline estimation
+- Risk analysis
+- MVP identification
+- Technology stack recommendations
+- Project theme selection
+- Project scaffolding
+- Project reports
+- Feedback management
+
+## Technology Stack
+
 | Layer | Technology |
 |---|---|
-| Backend | FastAPI (Python) |
-| Frontend | Next.js / React |
+| Frontend | Next.js, React, TypeScript, Tailwind CSS |
+| Backend | FastAPI, Python |
 | Database | PostgreSQL |
-| Machine Learning | scikit-learn, XGBoost |
-| AI Layer | LLM provider with structured output |
+| ORM | SQLAlchemy |
+| Migrations | Alembic |
+| AI | Groq LLM |
+| Machine Learning | scikit-learn |
+| Background Jobs | Redis, RQ |
+| Authentication | JWT |
+| Testing | Pytest |
+| Backend Deployment | Render |
+| Frontend Deployment | Vercel |
 
-## Why This Project
-Most "idea → estimate" tools either lean entirely on an LLM to guess numbers, or use rigid spreadsheets that can't adapt to unique projects. 
-This one keeps the LLM in charge of understanding language and generating explanations, while deterministic code and a trained ML model handle the actual calculations — so estimates stay consistent, explainable, and improve over time as real project data comes in.
+## How It Works
+
+```text
+Project Idea
+     |
+     v
+AI Analysis
+     |
+     v
+Requirements
+     |
+     v
+Features
+     |
+     v
+Task Breakdown
+     |
+     v
+Team Allocation
+     |
+     v
+Effort Estimation
+     |
+     +------> Cost
+     |
+     +------> Timeline
+     |
+     +------> Risks
+     |
+     v
+MVP & Technology Stack
+     |
+     v
+Project Report
