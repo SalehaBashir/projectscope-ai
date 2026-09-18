@@ -8,7 +8,10 @@ from app.models.user import User
 from pydantic import BaseModel
 import uuid
 
-router = APIRouter(prefix="/projects", tags=["Follow-Up Questions"])
+router = APIRouter(
+    prefix="/projects",
+    tags=["Follow-Up Questions"],
+)
 
 
 class AnswerRequest(BaseModel):
@@ -22,8 +25,25 @@ def get_questions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_project_access(project_id, db, current_user)
-    return question_service.get_relevant_questions(db, project_id)
+    require_project_access(
+        project_id,
+        db,
+        current_user,
+    )
+
+    questions = question_service.get_relevant_questions(
+        db,
+        project_id,
+    )
+
+    return [
+        {
+            "id": q["id"],
+            "description": q["text"],
+            "category": q.get("category"),
+        }
+        for q in questions
+    ]
 
 
 @router.post("/{project_id}/questions/answer")
@@ -33,15 +53,29 @@ def answer_question(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    require_project_access(project_id, db, current_user)
+    require_project_access(
+        project_id,
+        db,
+        current_user,
+    )
+
     try:
         saved = question_service.save_answer(
-            db, project_id, request.question_id, request.answer
+            db,
+            project_id,
+            current_user.organization_id,
+            request.question_id,
+            request.answer,
         )
+
         return {
             "id": saved.id,
             "category": saved.category,
             "description": saved.description,
         }
+
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
