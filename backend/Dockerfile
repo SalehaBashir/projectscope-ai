@@ -14,4 +14,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "alembic upgrade head && rq worker projectscope-jobs --url \"$REDIS_URL\" & exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
