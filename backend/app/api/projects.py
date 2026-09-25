@@ -1,3 +1,4 @@
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -39,6 +40,24 @@ def create_project(
 
 
 @router.get(
+    "/",
+    response_model=list[ProjectResponse],
+)
+def list_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    projects = project_service.get_all_projects(db)
+
+    return [
+        project
+        for project in projects
+        if project.organization_id == current_user.organization_id
+        and project.status != "archived"
+    ]
+
+
+@router.get(
     "/{project_id}",
     response_model=ProjectResponse,
 )
@@ -67,23 +86,6 @@ def get_project(
     return project
 
 
-@router.get(
-    "/",
-    response_model=list[ProjectResponse],
-)
-def list_projects(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    projects = project_service.get_all_projects(db)
-
-    return [
-        project
-        for project in projects
-        if project.organization_id == current_user.organization_id
-    ]
-
-
 @router.patch(
     "/{project_id}",
     response_model=ProjectResponse,
@@ -104,7 +106,86 @@ def update_project(
         budget=update.budget,
         platform=update.platform,
     )
+
     return updated
+
+
+@router.patch(
+    "/{project_id}/archive",
+    response_model=ProjectResponse,
+)
+def archive_project(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Archive a project by changing its status to 'archived'.
+    The project remains in the database but is hidden from
+    the normal active projects list.
+    """
+    require_project_access(project_id, db, current_user)
+
+    project = project_service.get_project_by_id(
+        db,
+        project_id,
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    if project.status == "archived":
+        raise HTTPException(
+            status_code=400,
+            detail="Project is already archived",
+        )
+
+    project.status = "archived"
+    db.commit()
+    db.refresh(project)
+
+    return project
+
+
+@router.patch(
+    "/{project_id}/unarchive",
+    response_model=ProjectResponse,
+)
+def unarchive_project(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Restore an archived project back to draft status.
+    """
+    require_project_access(project_id, db, current_user)
+
+    project = project_service.get_project_by_id(
+        db,
+        project_id,
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found",
+        )
+
+    if project.status != "archived":
+        raise HTTPException(
+            status_code=400,
+            detail="Project is not archived",
+        )
+
+    project.status = "draft"
+    db.commit()
+    db.refresh(project)
+
+    return project
 
 
 @router.delete(
@@ -117,13 +198,20 @@ def delete_project(
 ):
     require_project_access(project_id, db, current_user)
 
-    deleted = project_service.delete_existing_project(db, project_id)
+    deleted = project_service.delete_existing_project(
+        db,
+        project_id,
+    )
+
     if not deleted:
         raise HTTPException(
             status_code=400,
             detail="Could not delete project",
         )
-    return {"detail": "Project deleted successfully"}
+
+    return {
+        "detail": "Project deleted successfully"
+    }
 
 
 @router.post(
@@ -145,8 +233,8 @@ def recalculate(
             budget=update.budget if update else None,
             platform=update.platform if update else None,
             organization_id=current_user.organization_id,
-
         )
+
     except RecalculationError as e:
         raise HTTPException(
             status_code=502,
@@ -154,6 +242,7 @@ def recalculate(
         )
 
     estimate = result["estimate"]
+
     return {
         "project": {
             "id": result["project"].id,
@@ -170,7 +259,9 @@ def recalculate(
             "expected_cost": estimate["expected_cost"],
             "min_cost": estimate["min_cost"],
             "max_cost": estimate["max_cost"],
-            "timeline_weeks_expected": estimate["timeline_weeks_expected"],
+            "timeline_weeks_expected": estimate[
+                "timeline_weeks_expected"
+            ],
             "complexity_score": estimate["complexity_score"],
             "task_count": estimate["task_count"],
             "schedule": estimate["schedule"],
