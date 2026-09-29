@@ -1,9 +1,12 @@
 from app.observability.context import set_ai_context
 
 import json
+import re
 import uuid
 
 from app.models.project import Project
+from app.models.feature import Feature
+from app.models.task import Task
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -18,6 +21,8 @@ from app.ai.prompts import (
 
 from app.schemas.requirement_analysis import (
     RequirementAnalysisResult,
+    ExtractedFeature,
+    PriorityLevel,
 )
 
 from app.repositories import (
@@ -30,6 +35,179 @@ from app.rag.service import build_rag_context
 
 class AIAnalysisError(Exception):
     pass
+
+
+# =========================================================
+# FEATURE FALLBACK
+# =========================================================
+#
+# Sometimes the LLM correctly generates requirements but
+# returns an empty "features" array.
+#
+# ProjectScope still needs implementable features for:
+# - Tasks
+# - Team allocation
+# - Cost estimation
+# - Timeline
+# - MVP
+# - Risks
+#
+# Therefore, when the LLM returns no features, we derive
+# features from functional requirements.
+# =========================================================
+
+
+def _normalize_feature_name(name: str) -> str:
+    """Normalize a feature name for duplicate detection."""
+
+    value = name.strip().lower()
+
+    value = value.replace("_", " ")
+    value = re.sub(r"\s+", " ", value)
+
+    return value
+
+
+def _feature_name_from_requirement(text: str) -> str:
+    """
+    Convert a functional requirement into a concise
+    implementation-friendly feature name.
+    """
+
+    text = text.strip()
+
+    # Common requirement prefixes.
+    prefixes = [
+        "allow users to ",
+        "allow the user to ",
+        "allow visitors to ",
+        "allow administrators to ",
+        "allow admin users to ",
+        "provide ",
+        "enable ",
+        "support ",
+        "include ",
+        "implement ",
+        "create ",
+    ]
+
+    lowered = text.lower()
+
+    for prefix in prefixes:
+        if lowered.startswith(prefix):
+            text = text[len(prefix):].strip()
+            break
+
+    # Remove trailing implementation details that are
+    # better represented in the description.
+    text = re.sub(
+        r"\s+and store .*? in the database\.?$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    text = re.sub(
+        r"\s+with .*?\.?$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    # Keep the generated feature name reasonably short.
+    if len(text) > 120:
+        text = text[:120].rsplit(" ", 1)[0]
+
+    if not text:
+        text = "Project functionality"
+
+    # Convert sentence-like text to title case.
+    return text[0].upper() + text[1:].rstrip(".") 
+
+
+def _build_fallback_features(
+    requirements,
+) -> list[ExtractedFeature]:
+    """
+    Build implementable features from functional requirements.
+
+    Only functional requirements are converted.
+    Non-functional requirements, constraints and integrations
+    are not independently treated as product features.
+    """
+
+    fallback_features = []
+    seen = set()
+
+    for requirement in requirements:
+
+        if requirement.category.value != "functional":
+            continue
+
+        requirement_text = requirement.text.strip()
+
+        if not requirement_text:
+            continue
+
+        feature_name = _feature_name_from_requirement(
+            requirement_text
+        )
+
+        normalized = _normalize_feature_name(
+            feature_name
+        )
+
+        if normalized in seen:
+            continue
+
+        seen.add(normalized)
+
+        # Preserve confidence from the requirement while
+        # keeping the feature confidence in the valid range.
+        confidence = max(
+            0.0,
+            min(
+                1.0,
+                float(requirement.confidence),
+            ),
+        )
+
+        fallback_features.append(
+            ExtractedFeature(
+                canonical_name=feature_name,
+                description=requirement_text,
+                priority=PriorityLevel.medium,
+                complexity=PriorityLevel.medium,
+                confidence=confidence,
+            )
+        )
+
+    return fallback_features
+
+
+def _ensure_features(
+    result: RequirementAnalysisResult,
+) -> RequirementAnalysisResult:
+    """
+    Ensure that the analysis contains usable features.
+
+    If the LLM already generated features, preserve them.
+
+    If the LLM returned zero features but there are functional
+    requirements, derive features from those requirements.
+    """
+
+    if result.features:
+        return result
+
+    fallback_features = _build_fallback_features(
+        result.requirements
+    )
+
+    if fallback_features:
+        result.features = fallback_features
+
+    return result
 
 
 def analyze_project_description(
@@ -133,6 +311,18 @@ description. Do not invent missing project information.
 
         validated._llm_metadata = llm_metadata
 
+        # -----------------------------------------------------
+        # Ensure features exist.
+        #
+        # If the LLM returned no features but generated
+        # functional requirements, derive implementable
+        # features from those requirements.
+        # -----------------------------------------------------
+
+        validated = _ensure_features(
+            validated
+        )
+
         return validated
 
     except (
@@ -219,9 +409,35 @@ def analyze_and_save(
     # IMPORTANT:
     # Re-analysis replaces the previous generated analysis.
     #
-    # Without this cleanup, every re-analysis would append new
-    # requirements and features to the existing database rows.
+    # Delete tasks linked to old features BEFORE deleting
+    # those feature rows.
     # =========================================================
+
+    old_features = (
+        db.query(Feature)
+        .filter(
+            Feature.project_id == project_id
+        )
+        .all()
+    )
+
+    old_feature_ids = [
+        feature.id
+        for feature in old_features
+        if feature.id is not None
+    ]
+
+    if old_feature_ids:
+
+        db.query(Task).filter(
+            Task.feature_id.in_(old_feature_ids)
+        ).delete(
+            synchronize_session=False
+        )
+
+    # ---------------------------------------------------------
+    # Delete old requirements and features
+    # ---------------------------------------------------------
 
     requirement_repository.delete_requirements(
         db,
