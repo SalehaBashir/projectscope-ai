@@ -1,6 +1,8 @@
 from app.observability.context import set_ai_context
+
 import json
 import uuid
+
 from app.models.project import Project
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -13,8 +15,16 @@ from app.ai.prompts import (
     REQUIREMENT_ANALYZER_SYSTEM_PROMPT,
     build_user_prompt,
 )
-from app.schemas.requirement_analysis import RequirementAnalysisResult
-from app.repositories import requirement_repository, feature_repository
+
+from app.schemas.requirement_analysis import (
+    RequirementAnalysisResult,
+)
+
+from app.repositories import (
+    requirement_repository,
+    feature_repository,
+)
+
 from app.rag.service import build_rag_context
 
 
@@ -28,17 +38,26 @@ def analyze_project_description(
     platform: str = None,
 ) -> RequirementAnalysisResult:
 
+    # ---------------------------------------------------------
     # Retrieve relevant domain knowledge from RAG
+    # ---------------------------------------------------------
+
     rag_context = build_rag_context(description)
 
+    # ---------------------------------------------------------
     # Build the normal project prompt
+    # ---------------------------------------------------------
+
     user_prompt = build_user_prompt(
         description,
         budget,
         platform,
     )
 
+    # ---------------------------------------------------------
     # Add RAG knowledge as untrusted supporting context
+    # ---------------------------------------------------------
+
     user_prompt += f"""
 
 --- BEGIN UNTRUSTED RAG CONTEXT ---
@@ -55,35 +74,72 @@ description. Do not invent missing project information.
 """
 
     try:
+        # -----------------------------------------------------
+        # Call LLM
+        # -----------------------------------------------------
+
         raw_response, llm_metadata = call_llm_with_metadata(
             REQUIREMENT_ANALYZER_SYSTEM_PROMPT,
             user_prompt,
         )
 
+        # -----------------------------------------------------
         # Parse LLM JSON response
+        # -----------------------------------------------------
+
         parsed = json.loads(raw_response)
 
-        # LLM must return a JSON object
         if not isinstance(parsed, dict):
             raise AIAnalysisError(
                 "LLM returned invalid JSON object."
             )
 
-        # Some LLM responses may omit optional array fields.
-        # Add safe defaults before Pydantic validation.
-        parsed.setdefault("users", [])
-        parsed.setdefault("requirements", [])
-        parsed.setdefault("features", [])
-        parsed.setdefault("assumptions", [])
-        parsed.setdefault("missing_information", [])
+        # -----------------------------------------------------
+        # Safe defaults for optional arrays
+        # -----------------------------------------------------
 
+        parsed.setdefault(
+            "users",
+            [],
+        )
+
+        parsed.setdefault(
+            "requirements",
+            [],
+        )
+
+        parsed.setdefault(
+            "features",
+            [],
+        )
+
+        parsed.setdefault(
+            "assumptions",
+            [],
+        )
+
+        parsed.setdefault(
+            "missing_information",
+            [],
+        )
+
+        # -----------------------------------------------------
         # Validate structured response
-        validated = RequirementAnalysisResult(**parsed)
+        # -----------------------------------------------------
+
+        validated = RequirementAnalysisResult(
+            **parsed
+        )
+
         validated._llm_metadata = llm_metadata
 
         return validated
 
-    except (json.JSONDecodeError, ValidationError) as e:
+    except (
+        json.JSONDecodeError,
+        ValidationError,
+    ) as e:
+
         raise AIAnalysisError(
             f"LLM returned invalid structured output: {e}"
         ) from e
@@ -92,6 +148,7 @@ description. Do not invent missing project information.
         raise
 
     except Exception as e:
+
         raise AIAnalysisError(
             f"LLM request failed: {e}"
         ) from e
@@ -105,6 +162,10 @@ def analyze_and_save(
     budget: str = None,
     platform: str = None,
 ):
+    # ---------------------------------------------------------
+    # Run fresh AI analysis
+    # ---------------------------------------------------------
+
     result = analyze_project_description(
         description,
         budget,
@@ -113,21 +174,34 @@ def analyze_and_save(
 
     llm_metadata = result._llm_metadata
 
-    # Calculate estimated AI cost in USD
+    # ---------------------------------------------------------
+    # Calculate estimated AI cost
+    # ---------------------------------------------------------
+
     llm_metadata["estimated_ai_cost"] = calculate_ai_cost(
         model=llm_metadata["model"],
         prompt_tokens=llm_metadata["prompt_tokens"],
         completion_tokens=llm_metadata["completion_tokens"],
     )
 
+    # ---------------------------------------------------------
+    # Set observability context
+    # ---------------------------------------------------------
+
     set_ai_context(
-        model=llm_metadata.get("version") or llm_metadata.get("model"),
+        model=(
+            llm_metadata.get("version")
+            or llm_metadata.get("model")
+        ),
         prompt_tokens=llm_metadata["prompt_tokens"],
         completion_tokens=llm_metadata["completion_tokens"],
         estimated_cost=llm_metadata["estimated_ai_cost"],
     )
 
+    # ---------------------------------------------------------
     # Save LLM request telemetry
+    # ---------------------------------------------------------
+
     llm_request_repository.create_llm_request(
         db=db,
         project_id=project_id,
@@ -141,31 +215,87 @@ def analyze_and_save(
         metadata_json=llm_metadata,
     )
 
-    # Save generated requirements
-    saved_requirements = requirement_repository.create_requirements(
+    # =========================================================
+    # IMPORTANT:
+    # Re-analysis replaces the previous generated analysis.
+    #
+    # Without this cleanup, every re-analysis would append new
+    # requirements and features to the existing database rows.
+    # =========================================================
+
+    requirement_repository.delete_requirements(
         db,
         project_id,
-        organization_id,
-        [r.model_dump() for r in result.requirements],
     )
 
-    # Save generated features
-    saved_features = feature_repository.create_features(
+    feature_repository.delete_features(
         db,
         project_id,
-        organization_id,
-        [f.model_dump() for f in result.features],
     )
 
-    # Persist assumptions/missing information for report generation
-    project = db.query(Project).filter(Project.id == project_id).first()
+    db.flush()
+
+    # ---------------------------------------------------------
+    # Save latest generated requirements
+    # ---------------------------------------------------------
+
+    saved_requirements = (
+        requirement_repository.create_requirements(
+            db,
+            project_id,
+            organization_id,
+            [
+                requirement.model_dump()
+                for requirement in result.requirements
+            ],
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Save latest generated features
+    # ---------------------------------------------------------
+
+    saved_features = (
+        feature_repository.create_features(
+            db,
+            project_id,
+            organization_id,
+            [
+                feature.model_dump()
+                for feature in result.features
+            ],
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Persist assumptions and missing information
+    # ---------------------------------------------------------
+
+    project = (
+        db.query(Project)
+        .filter(
+            Project.id == project_id
+        )
+        .first()
+    )
 
     if project is not None:
-        project.assumptions = result.assumptions or []
-        project.missing_information = result.missing_information or []
+
+        project.assumptions = (
+            result.assumptions or []
+        )
+
+        project.missing_information = (
+            result.missing_information or []
+        )
 
         db.add(project)
+
         db.commit()
+
+    # ---------------------------------------------------------
+    # Return latest analysis
+    # ---------------------------------------------------------
 
     return {
         "project_type": result.project_type,
@@ -173,6 +303,8 @@ def analyze_and_save(
         "requirements": saved_requirements,
         "features": saved_features,
         "assumptions": result.assumptions,
-        "missing_information": result.missing_information,
+        "missing_information": (
+            result.missing_information
+        ),
         "llm_metadata": llm_metadata,
     }

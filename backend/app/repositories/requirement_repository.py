@@ -1,4 +1,3 @@
-
 from sqlalchemy.orm import Session
 
 from app.models.requirement import Requirement
@@ -12,7 +11,7 @@ def create_requirements(
     organization_id: uuid.UUID,
     requirements: list,
 ):
-    """requirements: list of dicts with 'category', 'text' (from LLM output)"""
+    """Create AI-generated requirements for a project."""
 
     created = []
 
@@ -30,16 +29,35 @@ def create_requirements(
 
     db.commit()
 
-    for r in created:
-        db.refresh(r)
+    for requirement in created:
+        db.refresh(requirement)
 
     return created
 
 
-def list_requirements(db: Session, project_id: uuid.UUID):
+def delete_requirements(
+    db: Session,
+    project_id: uuid.UUID,
+):
+    """Delete all existing AI-generated requirements for a project."""
+
+    db.query(Requirement).filter(
+        Requirement.project_id == project_id
+    ).delete(
+        synchronize_session=False
+    )
+
+
+def list_requirements(
+    db: Session,
+    project_id: uuid.UUID,
+):
+    """Return all requirements belonging to a project."""
 
     return (
         db.query(Requirement)
-        .filter(Requirement.project_id == project_id)
+        .filter(
+            Requirement.project_id == project_id
+        )
         .all()
     )

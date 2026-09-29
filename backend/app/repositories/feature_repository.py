@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
+
 from app.models.feature import Feature
+
 import uuid
 
 
@@ -9,8 +11,10 @@ def create_features(
     organization_id: uuid.UUID,
     features: list,
 ):
-    """features: list of dicts with 'canonical_name', 'description', 'priority', 'complexity', 'confidence'"""
+    """Create AI-generated features for a project."""
+
     created = []
+
     for feat in features:
         new_feat = Feature(
             project_id=project_id,
@@ -21,13 +25,41 @@ def create_features(
             complexity=feat["complexity"],
             confidence=feat["confidence"],
         )
+
         db.add(new_feat)
         created.append(new_feat)
+
     db.commit()
-    for f in created:
-        db.refresh(f)
+
+    for feature in created:
+        db.refresh(feature)
+
     return created
 
 
-def list_features(db: Session, project_id: uuid.UUID):
-    return db.query(Feature).filter(Feature.project_id == project_id).all()
+def delete_features(
+    db: Session,
+    project_id: uuid.UUID,
+):
+    """Delete all features belonging to a project."""
+
+    db.query(Feature).filter(
+        Feature.project_id == project_id
+    ).delete(
+        synchronize_session=False
+    )
+
+
+def list_features(
+    db: Session,
+    project_id: uuid.UUID,
+):
+    """Return all features belonging to a project."""
+
+    return (
+        db.query(Feature)
+        .filter(
+            Feature.project_id == project_id
+        )
+        .all()
+    )
